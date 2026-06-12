@@ -45,7 +45,7 @@
 Nothing here gets forgotten. Built items move to "Shipped".
 
 ### Locations (the long arc — one per release)
-- ✅ The Pond (~145m) — fishing, fish dex, eyes on the far bank *(v8)*
+- ✅ The Pond (~60m, moved from 145m on David's request — fish in peace) *(v8)*
 - The Corn Maze (~250m) — sightline-blocking walls, chest at the center,
   entities patrol the lanes
 - The Radio Tower (~400m) — climb for a one-time view + map/compass upgrade
