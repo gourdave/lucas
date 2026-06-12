@@ -17,6 +17,11 @@ import { initProgression, ensureDailyQuests, Expedition, addXp, unlocked, titleF
 import { Garden, CROPS } from './garden.js';
 import { Pets, EGG_TIERS, hatchEgg } from './pets.js';
 import { gameNow } from './state.js';
+import { Boss, HarvestNight, BARN_POS } from './boss.js';
+import { Decor } from './decor.js';
+import { initJournal, checkDepthBadges, TAPE_DEX } from './journal.js';
+import { submitScores, ensureLbName } from './lb.js';
+import { DREAMS, NIGHTMARE } from './dreams.js';
 
 const WALK_SPEED = 4.2;
 const EYE = 1.62;
@@ -63,6 +68,9 @@ const creatures = new Creatures(scene);
 const monsters = new Monsters(scene);
 const garden = new Garden(scene);
 const pets = new Pets(scene);
+const boss = new Boss(scene);
+const harvestNight = new HarvestNight();
+const decor = new Decor(scene);
 const allHotspots = () => house.hotspots.concat(garden.plotHotspots());
 const dreams = new Dreams();
 const therapist = buildTherapist(scene);
@@ -109,6 +117,8 @@ function startGame(fromSave) {
   UI.setHunger(State.hunger);
   UI.setMoney(State.money);
   initProgression();
+  if (!window.__journalInit) { window.__journalInit = true; initJournal(); }
+  ensureLbName();
   UI.setLevel();
   UI.setPetsButton(unlocked('pets'));
   playing = true;
@@ -141,6 +151,7 @@ function interact() {
   else if (id === 'therapist') openTherapist();
   else if (id === 'shop') openShop();
   else if (id === 'incubator') useIncubator();
+  else if (id === 'radio') cycleRadio();
   else if (id === 'chest') openDailyChest();
   else if (id.startsWith('plot')) usePlot(+id.slice(4));
 }
@@ -280,6 +291,11 @@ function fire() {
     _candPos.y += 1.4;
     consider(_candPos, c, 'hallucination');
   }
+  if (boss.active) {
+    _candPos.copy(boss.mesh.position);
+    _candPos.y += 2.6;
+    consider(_candPos, boss, 'boss');
+  }
 
   // a streak of light from the muzzle
   gunTip.getWorldPosition(_muzzle);
@@ -293,6 +309,8 @@ function fire() {
 
   if (best && best.kind === 'monster') {
     monsters.hit(best.obj, gun.dmg);
+  } else if (best && best.kind === 'boss') {
+    boss.hit(gun.dmg);
   } else if (best && best.kind === 'hallucination') {
     if (State.playTime - immuneToastAt > 6) {
       immuneToastAt = State.playTime;
@@ -304,7 +322,7 @@ function fire() {
 bus.on('monsterKilled', ({ coins }) => {
   audio.pop();
   audio.coin();
-  const earned = Math.round(coins * (pets.coinBonus || 1));
+  const earned = Math.round(coins * (pets.coinBonus || 1) * harvestNight.coinMult());
   Expedition.addCoins(earned);
   addXp(8);
   if (State.kills === 1) UI.toast(`🪙 +${earned} pending! Loot banks when you make it home — the longer you stay out, the bigger the Bravery bonus.`, 5200);
@@ -333,7 +351,69 @@ bus.on('banked', ({ coins, items, mult }) => {
   const seedCount = items.filter((i) => i.kind === 'seed').length;
   if (eggCount) bits.push(`🥚×${eggCount}`);
   if (seedCount) bits.push(`🌱×${seedCount}`);
+  const tapeCount = items.filter((i) => i.kind === 'tape').length;
+  if (tapeCount) bits.push(`📼×${tapeCount}`);
   UI.toast(`🏠 BANKED! ${bits.join(' ')} (Bravery ×${mult})`, 4500);
+  submitScores();
+});
+
+bus.on('tapeFound', () => {
+  const remaining = Object.keys(TAPE_DEX).filter((id) =>
+    !State.tapes.includes(id) && !State.exp.items.some((i) => i.kind === 'tape' && i.id === id));
+  if (!remaining.length) return;
+  const id = remaining[(Math.random() * remaining.length) | 0];
+  audio.chime();
+  Expedition.addItem({ kind: 'tape', id });
+  UI.toast('📼 A cassette tape! (pending — get it home to the radio)');
+});
+
+bus.on('badge', (b) => {
+  audio.fanfare();
+  UI.toast(`🏅 BADGE: ${b.emoji} ${b.name}!`, 4500);
+});
+
+bus.on('bossWake', () => {
+  audio.sting();
+  document.getElementById('bossbar').classList.remove('hidden');
+  document.getElementById('bossfill').style.width = '100%';
+  UI.toast('🎃 THE HARVESTER rises from the barn rows. Light it up — or RUN.', 5500);
+});
+
+bus.on('bossHit', ({ hp, max }) => {
+  document.getElementById('bossfill').style.width = Math.max(0, (hp / max) * 100) + '%';
+});
+
+bus.on('bossKilled', () => {
+  document.getElementById('bossbar').classList.add('hidden');
+  audio.fanfare();
+  shake = 0.8;
+  const reward = Math.round(150 * harvestNight.coinMult());
+  Expedition.addCoins(reward);
+  Expedition.addItem({ kind: 'egg', tier: 'midnight', mult: 3 });
+  if (!State.decor.includes('trophy')) State.decor.push('trophy');
+  addXp(120);
+  submitScores();
+  UI.toast(`🎃 THE HARVESTER FALLS! +🪙${reward} pending, a MIDNIGHT EGG, and its lantern for your mantel. Now get it all home!`, 7000);
+});
+
+bus.on('bossSwipe', () => {
+  if (pets.tryShield()) { UI.toast('🎃 Your Strawlem takes the hit!'); return; }
+  audio.sting();
+  UI.flash();
+  shake = 0.7;
+  State.sanity = Math.max(0, State.sanity - 25);
+  UI.toast('The Harvester\'s arm sweeps through you like cold smoke!');
+});
+
+bus.on('harvestNightStart', () => {
+  audio.sting();
+  UI.toast('🌕 HARVEST NIGHT! The sky bleeds for 90 seconds — TRIPLE coins if you can survive out here!', 6000);
+});
+
+bus.on('harvestNightEnd', ({ survived }) => {
+  UI.toast(survived
+    ? '🌕 Harvest Night passes. You stood your ground. Respect.'
+    : '🌕 The red sky fades behind you.', 4500);
 });
 
 bus.on('levelup', ({ level, title, unlocks }) => {
@@ -344,6 +424,7 @@ bus.on('levelup', ({ level, title, unlocks }) => {
   if (unlocks.includes('garden')) msg += ' 🌱 NEW: your GARDEN is ready in the yard!';
   if (unlocks.includes('pets')) msg += ' 🥚 NEW: PET EGGS now appear in the fields + incubator in the house!';
   UI.toast(msg, 6500);
+  submitScores();
 });
 
 bus.on('monsterBite', () => {
@@ -373,6 +454,32 @@ UI.onOpenPets = () => {
   controls.releaseLock();
   audio.blip();
   UI.openPets();
+};
+UI.onOpenJournal = () => {
+  if (!playing || busy || inDream) return;
+  controls.enabled = false;
+  controls.releaseLock();
+  audio.blip();
+  UI.openJournal();
+};
+UI.onOpenLb = () => {
+  if (!playing || busy || inDream) return;
+  controls.enabled = false;
+  controls.releaseLock();
+  audio.blip();
+  UI.openLb();
+};
+UI.onPhoto = () => {
+  if (!playing) return;
+  renderer.render(inDream ? dreams.scene : scene, inDream ? dreams.camera : camera);
+  const data = canvas.toDataURL('image/png');
+  const a = document.createElement('a');
+  a.href = data;
+  a.download = 'bumpercrop-' + Date.now() + '.png';
+  a.click();
+  audio.shutter();
+  UI.flash();
+  UI.toast('📸 Snapped! Saved to your downloads.');
 };
 UI.onPanelClosed = () => { controls.enabled = true; };
 UI.onQuestClaimed = (q) => {
@@ -509,17 +616,51 @@ UI.onPurchase = (item) => {
 };
 
 // ---------- sleeping & dreaming ----------
-async function goToSleep() {
+function goToSleep() {
+  if (State.dreamPerks.includes('lucid')) {
+    controls.enabled = false;
+    controls.releaseLock();
+    const opts = [...DREAMS, NIGHTMARE].map((def) => ({
+      value: def, emoji: def.id === 'nightmare' ? '🩸' : '🌙',
+      label: def.title, sub: def.id === 'nightmare' ? 'big stardust. big nerves.' : '',
+      button: 'dream',
+    }));
+    UI.openPicker('🗝 CHOOSE YOUR DREAM', opts, (def) => { controls.enabled = true; beginSleep(def); });
+    return;
+  }
+  // past level 5, sometimes the night has other plans...
+  const forced = (State.level >= 5 && Math.random() < 0.22) ? NIGHTMARE : null;
+  beginSleep(forced);
+}
+
+async function beginSleep(forced) {
   busy = true;
   controls.enabled = false;
   UI.setPrompt(null);
   await UI.fade(1, 1.3);
-  const def = dreams.begin();
+  const def = dreams.begin(forced);
   inDream = true;
   audio.startDream();
   UI.showDreamTitle(def.title);
   await UI.fade(0, 1.6);
   busy = false;
+}
+
+// ---------- the radio ----------
+function cycleRadio() {
+  if (!State.tapes.length) { UI.toast('📻 Static. Find cassette tapes out in the fields to give it songs!'); return; }
+  const idx = State.flags.radioIdx ?? -1;
+  const next = idx + 1;
+  if (next >= State.tapes.length) {
+    State.flags.radioIdx = -1;
+    audio.stopTape();
+    UI.toast('📻 click. Radio off.');
+  } else {
+    State.flags.radioIdx = next;
+    const tapeId = State.tapes[next];
+    audio.startTape(TAPE_DEX[tapeId].style);
+    UI.toast(`📻 Now playing: ${TAPE_DEX[tapeId].name}`);
+  }
 }
 
 async function wakeUp() {
@@ -535,6 +676,10 @@ async function wakeUp() {
   State.flags.lastDream = def.id;
   bus.emit('dreamed', {});
   addXp(15);
+  const baseDust = def.id === 'nightmare' ? 25 + Math.random() * 10 : 5 + Math.random() * 6;
+  const dust = Math.round(baseDust * (State.dreamPerks.includes('star') ? 2 : 1));
+  State.stardust += dust;
+  UI.toast(`✨ +${dust} stardust (you have ${State.stardust}) — spend it at the stall!`, 4000);
   if (def.reward.type === 'water') {
     State.inventory.almondWater++;
     State.totalAlmondFound++;
@@ -604,6 +749,9 @@ window.__look = (yaw, pitch = 0) => { controls.yaw = yaw; controls.pitch = pitch
 window.__creatures = creatures;
 window.__monsters = monsters;
 window.__fire = fire;
+window.__boss = boss;
+window.__hn = harvestNight;
+window.__dreams = dreams;
 window.__pos = () => ({ x: +player.x.toFixed(2), y: +player.y.toFixed(2), z: +player.z.toFixed(2) });
 window.__addXp = addXp;
 window.__audio = audio;
@@ -628,9 +776,14 @@ function tick() {
   const mv = controls.move;
   const moving = (mv.x !== 0 || mv.y !== 0) && controls.enabled;
   if (moving) {
+    let speedMult = State.dreamPerks.includes('stride') ? 1.12 : 1;
+    if (!house.isInYard(player.x, player.z)) {
+      if (State.ride === 'cart') speedMult *= 2.2;
+      else if (State.ride === 'bike') speedMult *= 1.8;
+    }
     const sin = Math.sin(controls.yaw), cos = Math.cos(controls.yaw);
-    const dx = (-sin * mv.y + cos * mv.x) * WALK_SPEED * dt;
-    const dz = (-cos * mv.y - sin * mv.x) * WALK_SPEED * dt;
+    const dx = (-sin * mv.y + cos * mv.x) * WALK_SPEED * speedMult * dt;
+    const dz = (-cos * mv.y - sin * mv.x) * WALK_SPEED * speedMult * dt;
     const out = house.collide(player.x, player.z, player.x + dx, player.z + dz, player.y);
     player.x = out.x;
     player.z = out.z;
@@ -694,7 +847,19 @@ function tick() {
     }
   }
 
+  // --- danger systems ---
+  if (!inDream) {
+    boss.update(dt, player, monsters);
+    harvestNight.update(dt, State.distance, inYard);
+    world.harvestNight = harvestNight.active;
+    monsters.frenzy = harvestNight.active;
+    monsters.cartNoise = State.ride === 'cart' && !inYard;
+    if (!boss.active) document.getElementById('bossbar').classList.add('hidden');
+    if (State.exp.active) checkDepthBadges(State.exp.peak);
+  }
+
   // --- cozy systems ---
+  decor.refresh();
   garden.group.visible = unlocked('garden');
   garden.update(dt);
   pets.update(dt, {

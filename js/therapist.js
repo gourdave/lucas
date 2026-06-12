@@ -281,6 +281,9 @@ What you know about this world:
 - THE BIG RULE: loot found outside is PENDING until the player walks home through the gate — it banks with a "Bravery" multiplier that grows the longer and deeper they stay out. Blacking out drops it in a lost bag they can go rescue.
 - You post three daily quests; there's a daily gift on the porch; players level up and earn titles (Wheat Wanderer, Night Walker, Worm Popper...).
 - At level 2 a garden unlocks in the yard (crops grow in real time; seeds found in the fields). At level 3, pet eggs appear in the fields — hatched in the house incubator into companions like the Lantern Beetle, Shadow Cat, or the legendary Strawlem.
+- THE HARVESTER, a lantern-headed scarecrow-thing, guards a barn past the 300m mark (follow the power lines north). Beatable once a day for big loot. On rare Harvest Nights the sky bleeds red for 90 seconds and coins are tripled for the brave.
+- Cassette tapes hidden in the fields play songs on the living-room radio. A collection journal (the trophy button) tracks everything. There's an online leaderboard with silly made-up names.
+- Dreams drop stardust (spend it at the stall on dream-powers). Past level 5, rare NIGHTMARES pay triple stardust. A rusty bike and a very loud shopping cart can be bought for faster expeditions.
 - Sleeping in the bed upstairs triggers dream adventures. You claim to watch the player's dreams from your chair. You speak for the lamp sometimes. Nobody built the house; it was always here, and it likes being lived in.
 
 Current player state (weave details in naturally when relevant, don't recite):

@@ -50,19 +50,31 @@ export default {
       return new Response(null, { status: 204, headers: cors });
     }
     // friendly status page — lets you verify the worker by visiting its URL
-    if (request.method === 'GET') {
+    if (request.method === 'GET' && new URL(request.url).pathname !== '/lb') {
       return new Response(JSON.stringify({
         ok: true,
         service: 'Dr. Umbra proxy',
         keyConfigured: Boolean(env.ANTHROPIC_API_KEY),
+        leaderboard: Boolean(env.LB),
       }), { headers: { 'content-type': 'application/json' } });
     }
-    if (request.method !== 'POST' || !allowed) {
+    if (!allowed || (request.method !== 'POST' && !(request.method === 'GET' && new URL(request.url).pathname === '/lb'))) {
       return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: cors });
     }
     const ip = request.headers.get('cf-connecting-ip') || 'unknown';
     if (rateLimited(ip)) {
       return new Response(JSON.stringify({ error: 'slow down' }), { status: 429, headers: cors });
+    }
+
+    const url = new URL(request.url);
+
+    // ---- the leaderboard (stored in a Durable Object) ----
+    if (url.pathname === '/lb') {
+      if (!env.LB) return new Response(JSON.stringify({ error: 'no leaderboard' }), { status: 503, headers: cors });
+      const stub = env.LB.get(env.LB.idFromName('global'));
+      const res = await stub.fetch(request);
+      const text = await res.text();
+      return new Response(text, { status: res.status, headers: { ...cors, 'content-type': 'application/json' } });
     }
 
     let body;
@@ -102,3 +114,49 @@ export default {
     });
   },
 };
+
+
+// ---- the leaderboard Durable Object (SQLite-backed, auto-provisioned) ----
+export class Leaderboard {
+  constructor(ctx) { this.ctx = ctx; }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    const all = (await this.ctx.storage.get('scores')) || {};
+
+    if (request.method === 'POST') {
+      let body;
+      try { body = await request.json(); } catch { return json({ error: 'bad json' }, 400); }
+      const name = String(body.name || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 24);
+      if (name.length < 3) return json({ error: 'bad name' }, 400);
+      const cur = all[name] || {};
+      for (const board of ['depth', 'kills', 'rich']) {
+        const v = Math.max(0, Math.min(1_000_000, Math.round(Number(body.scores?.[board]) || 0)));
+        cur[board] = Math.max(cur[board] || 0, v);
+      }
+      cur.t = Date.now();
+      all[name] = cur;
+      // keep the table small: drop the oldest entries past 500 players
+      const names = Object.keys(all);
+      if (names.length > 500) {
+        names.sort((a, b) => (all[a].t || 0) - (all[b].t || 0));
+        for (const n of names.slice(0, names.length - 500)) delete all[n];
+      }
+      await this.ctx.storage.put('scores', all);
+      return json({ ok: true });
+    }
+
+    const board = ['depth', 'kills', 'rich'].includes(url.searchParams.get('board'))
+      ? url.searchParams.get('board') : 'depth';
+    const top = Object.entries(all)
+      .map(([name, s]) => ({ name, score: s[board] || 0 }))
+      .filter((e) => e.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 15);
+    return json({ board, top });
+  }
+}
+
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
+}

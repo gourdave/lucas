@@ -65,6 +65,31 @@
   #pending {
     font-size: 12px; color: #cfe0b8; background: rgba(18,28,12,.55); border-radius: 14px; padding: 3px 11px;
   }
+  #bossbar {
+    position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    z-index: 11; display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: rgba(20,6,4,.7); border: 1px solid rgba(255,120,40,.5); border-radius: 12px; padding: 8px 16px;
+  }
+  #bossname { font-size: 12px; letter-spacing: .3em; color: #ffab66; }
+  #bossfill { height: 100%; width: 100%; background: #e85530; border-radius: 5px; }
+  #journalpct { font-size: 12px; color: #d8b24f; letter-spacing: .1em; }
+  .j-section { font-size: 11px; letter-spacing: .3em; color: #8d8470; margin: 8px 0 2px 2px; }
+  .j-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+  .j-item {
+    display: flex; align-items: center; gap: 7px; padding: 6px 10px; border-radius: 8px;
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); font-size: 12px; color: #cfc7ae;
+  }
+  .j-item.missing { opacity: .42; }
+  .lb-tabs { display: flex; gap: 6px; padding: 0 12px; }
+  .lb-tabs button {
+    flex: 1; font-size: 12px; padding: 8px; border-radius: 8px; border: 1px solid rgba(216,178,79,.4);
+    background: transparent; color: #b3a883; cursor: pointer;
+  }
+  .lb-tabs button.active { background: #d8b24f; color: #14130c; font-weight: 700; }
+  .lb-row { display: flex; gap: 10px; padding: 7px 12px; font-size: 13.5px; color: #cfc7ae; }
+  .lb-row.me { background: rgba(216,178,79,.12); border-radius: 8px; color: #f0e8d2; }
+  .lb-rank { width: 26px; color: #8d8470; }
+  .lb-name { flex: 1; }
   #levellabel { font-size: 10px; letter-spacing: .25em; color: #d8b24f; }
   #xpfill { height: 100%; width: 0%; background: #d8b24f; border-radius: 5px; }
   #hudbtns { display: flex; gap: 7px; margin-top: 8px; }
@@ -299,6 +324,9 @@
     <div id="hudbtns">
       <button id="questsbtn">📜</button>
       <button id="petsbtn" class="hidden">🐾</button>
+      <button id="journalbtn">🏆</button>
+      <button id="lbbtn">🏅</button>
+      <button id="photobtn">📸</button>
     </div>
   </div>
   <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
@@ -314,6 +342,7 @@
 </div>
 
 <button id="prompt" class="hidden"></button>
+<div id="bossbar" class="hidden"><span id="bossname">🎃 THE HARVESTER</span><div class="bar" style="width:220px"><div id="bossfill"></div></div></div>
 <div id="crosshair" class="hidden"></div>
 <div id="grain"></div>
 <div id="vignette"></div>
@@ -382,6 +411,21 @@
   <div class="panel">
     <div class="panel-head"><span>🐾 YOUR PETS</span><button id="petsclose">×</button></div>
     <div class="panel-body" id="petlist"></div>
+  </div>
+</div>
+
+<div id="journalpanel" class="panel-wrap hidden">
+  <div class="panel">
+    <div class="panel-head"><span>🏆 COLLECTION JOURNAL</span><span id="journalpct"></span><button id="journalclose">×</button></div>
+    <div class="panel-body" id="journalbody"></div>
+  </div>
+</div>
+
+<div id="lbpanel" class="panel-wrap hidden">
+  <div class="panel">
+    <div class="panel-head"><span>🏅 LEADERBOARD</span><button id="lbclose">×</button></div>
+    <div class="lb-tabs" id="lbtabs"></div>
+    <div class="panel-body" id="lbbody"></div>
   </div>
 </div>
 

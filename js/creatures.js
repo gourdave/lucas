@@ -98,6 +98,7 @@ export class Creatures {
     c.fade = 0;
     c.mesh.position.set(x, c.kind === 'grin' ? 2.0 : 0, z);
     c.mesh.visible = true;
+    bus.emit('creatureSeen', { kind: c.kind });
   }
 
   _despawn(c) {
