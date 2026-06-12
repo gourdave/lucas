@@ -12,7 +12,7 @@ export const DECOR = {
     build(g) {
       const m = new THREE.Mesh(new THREE.CylinderGeometry(1.6, 1.6, 0.04, 18),
         new THREE.MeshLambertMaterial({ color: 0x8a4a3a }));
-      m.position.set(-3.6, 0.06, -0.6);
+      m.position.set(-3.6, 0.075, -0.6);
       g.add(m);
     },
   },
