@@ -5,12 +5,13 @@
 - v5 progression: expeditions/Bravery, levels, quests, garden, pets
 - v6 everything-else: journal, photo mode, decor, tapes/radio, The Harvester,
   Harvest Night, bike/cart, stardust/nightmares, online leaderboard
+- v7 interactive dreams (Phase H): every dream is now a playable minigame —
+  hop the floating plots for golden bundles, catch falling stars in the neon
+  void, tap-race the ladybug up the giant stalk, slip through the ring of
+  grins in the nightmare. Stardust scales with how well you played.
 
 ## Next ideas (from Lucas, as they come)
-- **Interactive dreams (Phase H)** — turn the dream vignettes into playable
-  minigames so they feel like real adventures: hop across the floating plots,
-  catch falling stars in the neon void, climb the giant stalk, outrun the
-  ring of grins in the nightmare. Rewards scale with performance.
+- (waiting on Lucas's next batch)
 
 ## Parked — bigger explorations (David, 2026-06-12)
 - **Photorealism push** — next-level graphics pass beyond the current stylized look

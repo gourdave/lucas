@@ -508,6 +508,13 @@ export const UI = {
     clearTimeout(this._dreamTimer);
     this._dreamTimer = setTimeout(() => this.dreamtitle.classList.add('hidden'), 3600);
   },
+  // the dream minigame's one-line scoreboard (null hides it)
+  setDreamHud(text) {
+    const el = $('dreamhud');
+    if (!text) { el.classList.add('hidden'); return; }
+    if (el.textContent !== text) el.textContent = text;
+    el.classList.remove('hidden');
+  },
 
   // ---------- book ----------
   openBook() {
