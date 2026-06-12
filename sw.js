@@ -1,6 +1,6 @@
 // sw.js — network-first service worker: always serve the freshest game when
 // online (so updates appear immediately), fall back to cache when offline.
-const CACHE = 'bumpercrop-v6';
+const CACHE = 'bumpercrop-v7';
 const ASSETS = [
   './',
   './index.html',
@@ -25,6 +25,9 @@ const ASSETS = [
   './js/boss.js',
   './js/decor.js',
   './js/lb.js',
+  './js/fishing.js',
+  './js/digsite.js',
+  './js/listener.js',
   './js/vendor/three.module.min.js',
 ];
 

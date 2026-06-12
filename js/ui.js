@@ -9,6 +9,7 @@ import { journalSections } from './journal.js';
 import { BOARDS, fetchBoard, ensureLbName, rerollLbName } from './lb.js';
 import { CROPS } from './garden.js';
 import { PETS, RARITY } from './pets.js';
+import { ReelGame, FISH, RARITY_COLOR } from './fishing.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -247,6 +248,13 @@ export const UI = {
   setPetsButton(show) {
     document.getElementById('petsbtn').classList.toggle('hidden', !show);
   },
+  // the scribbled note from the number station (null hides it)
+  setDig(text) {
+    const el = $('digchip');
+    if (!text) { el.classList.add('hidden'); return; }
+    if (el.textContent !== text) el.textContent = text;
+    el.classList.remove('hidden');
+  },
 
   // ---------- quests ----------
   openQuests() {
@@ -403,6 +411,97 @@ export const UI = {
       el.innerHTML = `<span class="lb-rank">${medal}</span><span class="lb-name">${row.name}</span><span>${row.score}${BOARDS[initialBoard].unit}</span>`;
       body.appendChild(el);
     });
+  },
+
+  // ---------- fishing: the one-touch reel minigame ----------
+  // phases: cast (wait for the bite) → reel (the ReelGame) → reveal → done.
+  // onEvent('bite'|'caught'|'escaped') lets main.js play sounds; onDone gets
+  // 'caught' | 'escaped' | 'cancel'.
+  openFishing(fishId, onEvent, onDone) {
+    const wrap = $('fishpanel');
+    const msg = $('fishmsg');
+    const track = $('fishtrack');
+    const zone = $('fishzone');
+    const icon = $('fishicon');
+    const fill = $('fishprogfill');
+    const hint = $('fishhint');
+    wrap.classList.remove('hidden');
+    track.classList.add('dim');
+    icon.textContent = '🐟';
+    msg.textContent = 'the line sinks into the dark water…';
+    msg.style.color = '#9fb4be';
+    hint.textContent = 'wait for it…';
+    let holding = false;
+    let game = null;
+    let raf = 0;
+    let lastT = 0;
+    let finished = false;
+
+    const down = (e) => { e.preventDefault(); holding = true; };
+    const up = () => { holding = false; };
+    wrap.addEventListener('pointerdown', down);
+    addEventListener('pointerup', up);
+    addEventListener('pointercancel', up);
+
+    const cleanup = () => {
+      finished = true;
+      cancelAnimationFrame(raf);
+      clearTimeout(this._biteTimer);
+      wrap.removeEventListener('pointerdown', down);
+      removeEventListener('pointerup', up);
+      removeEventListener('pointercancel', up);
+      $('fishclose').onclick = null;
+    };
+    $('fishclose').onclick = () => {
+      cleanup();
+      wrap.classList.add('hidden');
+      onDone('cancel');
+    };
+
+    // the wait. then the BITE.
+    this._biteTimer = setTimeout(() => {
+      if (finished) return;
+      onEvent && onEvent('bite');
+      if (navigator.vibrate) navigator.vibrate(90);
+      track.classList.remove('dim');
+      msg.textContent = 'BITE!';
+      msg.style.color = '#ffce54';
+      hint.textContent = 'HOLD to lift the cage — keep the fish inside it!';
+      game = new ReelGame(fishId);
+      this._reelGame = game;   // (debug/testing handle)
+      lastT = performance.now();
+      const loop = (now) => {
+        if (finished) return;
+        const dt = Math.min(0.05, (now - lastT) / 1000);
+        lastT = now;
+        const result = game.update(dt, holding);
+        const H = track.clientHeight;
+        zone.style.height = game.zoneSize * 100 + '%';
+        zone.style.bottom = Math.max(0, Math.min(1 - game.zoneSize, game.zonePos - game.zoneSize / 2)) * 100 + '%';
+        zone.classList.toggle('in', !!game.inZone);
+        icon.style.bottom = (game.fishPos * (H - 26)) + 'px';
+        fill.style.height = (game.progress * 100) + '%';
+        if (!result) { raf = requestAnimationFrame(loop); return; }
+        // reveal
+        cleanup();
+        const f = FISH[fishId];
+        if (result === 'caught') {
+          icon.textContent = f.emoji;
+          msg.innerHTML = `${f.emoji} <b style="color:${RARITY_COLOR[f.rarity]}">${f.name}</b>!`;
+          hint.textContent = f.flavor;
+        } else {
+          msg.textContent = 'it slipped back into the dark…';
+          msg.style.color = '#9fb4be';
+          hint.textContent = 'the pond is patient. so are you.';
+        }
+        onEvent && onEvent(result);
+        setTimeout(() => {
+          wrap.classList.add('hidden');
+          onDone(result);
+        }, result === 'caught' ? 1800 : 1300);
+      };
+      raf = requestAnimationFrame(loop);
+    }, 1100 + Math.random() * 1700);
   },
 
   // ---------- generic picker (seeds, eggs) ----------

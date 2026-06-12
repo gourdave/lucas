@@ -27,6 +27,10 @@ export const State = {
   rides: [],            // 'bike', 'cart'
   ride: null,           // equipped ride
   journal: { creatures: [], crops: [], mealsMade: [], badges: [] },
+  fish: {},             // fish dex: { bass: 2, ... } — counted when BANKED at home
+  digSite: null,        // { x, z, taps } — where the radio's numbers point
+  digsDone: 0,
+  listenersSurvived: 0, // times you froze until The Listener gave up
   lbName: '',           // auto-generated leaderboard name
   bossKills: 0,
   distance: 0,          // live distance from the house (meters)
@@ -96,6 +100,10 @@ export function load() {
     State.rides ??= [];
     State.ride ??= null;
     State.journal ??= { creatures: [], crops: [], mealsMade: [], badges: [] };
+    State.fish ??= {};
+    State.digSite ??= null;
+    State.digsDone ??= 0;
+    State.listenersSurvived ??= 0;
     State.lbName ??= '';
     State.bossKills ??= 0;
     State.flags ||= {};

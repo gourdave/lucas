@@ -349,6 +349,106 @@ export class GameAudio {
     this.tapeGain = null;
   }
 
+  // a soft plunk + ripple for the fishing line
+  splash() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(420, t);
+    osc.frequency.exponentialRampToValueAtTime(120, t + 0.18);
+    const g = ctx.createGain();
+    this._env(g, t, 0.12, 0.005, 0.18);
+    osc.connect(g).connect(this.master);
+    osc.start(t); osc.stop(t + 0.22);
+    const n = ctx.createBufferSource();
+    n.buffer = this._noiseBuffer(0.3);
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 2400; bp.Q.value = 1.2;
+    const ng = ctx.createGain();
+    this._env(ng, t + 0.04, 0.05, 0.02, 0.26);
+    n.connect(bp).connect(ng).connect(this.master);
+    n.start(t + 0.04);
+  }
+
+  // a shovel biting into soil
+  dig() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const n = ctx.createBufferSource();
+    n.buffer = this._noiseBuffer(0.22);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 480;
+    const g = ctx.createGain();
+    this._env(g, t, 0.2, 0.005, 0.2);
+    n.connect(lp).connect(g).connect(this.master);
+    n.start(t);
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(150, t);
+    osc.frequency.exponentialRampToValueAtTime(60, t + 0.1);
+    const og = ctx.createGain();
+    this._env(og, t, 0.1, 0.005, 0.1);
+    osc.connect(og).connect(this.master);
+    osc.start(t); osc.stop(t + 0.14);
+  }
+
+  // the number station: carrier hum, then five flat beeps through static
+  numberStation() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const n = ctx.createBufferSource();
+    n.buffer = this._noiseBuffer(3.4);
+    const bp = ctx.createBiquadFilter();
+    bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 0.5;
+    const ng = ctx.createGain();
+    ng.gain.setValueAtTime(0.0001, t);
+    ng.gain.linearRampToValueAtTime(0.05, t + 0.4);
+    ng.gain.setValueAtTime(0.05, t + 2.9);
+    ng.gain.linearRampToValueAtTime(0.0001, t + 3.4);
+    n.connect(bp).connect(ng).connect(this.master);
+    n.start(t);
+    [0.6, 1.1, 1.6, 2.1, 2.6].forEach((d, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = i % 2 ? 880 : 1046;
+      const g = ctx.createGain();
+      this._env(g, t + d, 0.09, 0.01, 0.3);
+      osc.connect(g).connect(this.master);
+      osc.start(t + d);
+      osc.stop(t + d + 0.35);
+    });
+  }
+
+  // a thin held tone while The Listener hunts — stops the moment it leaves
+  listenerStart() {
+    if (!this.ctx || this._listener) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.value = 1320;
+    const vib = ctx.createOscillator();
+    vib.frequency.value = 4.5;
+    const vibGain = ctx.createGain();
+    vibGain.gain.value = 9;
+    vib.connect(vibGain).connect(osc.frequency);
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.035, t + 1.2);
+    osc.connect(g).connect(this.master);
+    osc.start(t); vib.start(t);
+    this._listener = { osc, vib, g };
+  }
+
+  listenerStop() {
+    if (!this.ctx || !this._listener) return;
+    const t = this.ctx.currentTime;
+    const l = this._listener;
+    l.g.gain.setTargetAtTime(0.0001, t, 0.3);
+    setTimeout(() => { try { l.osc.stop(); l.vib.stop(); } catch {} }, 1500);
+    this._listener = null;
+  }
+
   // camera shutter for photo mode
   shutter() {
     if (!this.ctx) return;

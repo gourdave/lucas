@@ -22,6 +22,10 @@ import { Decor } from './decor.js';
 import { initJournal, checkDepthBadges, TAPE_DEX } from './journal.js';
 import { submitScores, ensureLbName } from './lb.js';
 import { DREAMS, NIGHTMARE } from './dreams.js';
+import { Pond, POND_POS, FISH, rollFish } from './fishing.js';
+import { DigSiteMarker, broadcastAvailable, makeBroadcast, digHud, digOnce } from './digsite.js';
+import { Listener } from './listener.js';
+import { seedForDepth } from './garden.js';
 
 const WALK_SPEED = 4.2;
 const EYE = 1.62;
@@ -71,6 +75,9 @@ const pets = new Pets(scene);
 const boss = new Boss(scene);
 const harvestNight = new HarvestNight();
 const decor = new Decor(scene);
+const pond = new Pond(scene);
+const digMarker = new DigSiteMarker(scene);
+const listenerEnt = new Listener(scene);
 const allHotspots = () => house.hotspots.concat(garden.plotHotspots());
 const dreams = new Dreams();
 const therapist = buildTherapist(scene);
@@ -153,7 +160,74 @@ function interact() {
   else if (id === 'incubator') useIncubator();
   else if (id === 'radio') cycleRadio();
   else if (id === 'chest') openDailyChest();
+  else if (id === 'pond') startFishing();
+  else if (id === 'dig') doDig();
   else if (id.startsWith('plot')) usePlot(+id.slice(4));
+}
+
+// ---------- fishing ----------
+let fishStreak = 0;   // consecutive catches this trip — deeper streak, stranger fish
+
+function startFishing() {
+  busy = true;
+  controls.enabled = false;
+  controls.releaseLock();
+  UI.setPrompt(null);
+  if (!State.flags.gotRod) {
+    State.flags.gotRod = true;
+    UI.toast('🎣 An old rod leans against the dock, line already wet. Left here. For you, apparently.', 5200);
+  }
+  audio.splash();
+  const fishId = rollFish(fishStreak, harvestNight.active);
+  UI.openFishing(fishId, (ev) => {
+    if (ev === 'bite') audio.blip();
+    else if (ev === 'caught') audio.chime();
+  }, (result) => {
+    busy = false;
+    controls.enabled = true;
+    if (result === 'caught') {
+      const f = FISH[fishId];
+      fishStreak++;
+      Expedition.addCoins(f.coins);
+      Expedition.addItem({ kind: 'fish', id: fishId });
+      bus.emit('fishCaught', { id: fishId });
+      addXp(10);
+      if (f.rarity === 'rare' || f.rarity === 'legendary') audio.fanfare();
+      UI.toast(`${f.emoji} ${f.name} — 🪙${f.coins} pending! ${fishStreak >= 2
+        ? `Streak ×${fishStreak}… something bigger is circling.`
+        : 'Keep casting — the pond gets curious about people who stay.'}`, 4800);
+    } else if (result === 'escaped') {
+      UI.toast('It slipped the cage and was gone. Cast again!');
+    }
+  });
+}
+
+// ---------- digging up the radio's numbers ----------
+function doDig() {
+  const res = digOnce();
+  if (!res) return;
+  audio.dig();
+  if (!res.done) {
+    UI.toast(`⛏ ${res.taps}/${res.of} — the soil here is loose. Someone wanted this found.`);
+    return;
+  }
+  Expedition.addCoins(res.coins);
+  if (res.bonus) {
+    if (res.bonus.kind === 'egg') Expedition.addItem({ kind: 'egg', tier: res.bonus.tier, mult: res.bonus.mult });
+    else if (res.bonus.kind === 'tape') bus.emit('tapeFound', {});
+    else if (res.bonus.kind === 'seed') bus.emit('seedFound', { crop: seedForDepth(State.distance) });
+  }
+  audio.coin();
+  addXp(30);
+  UI.toast(`⛏ A buried cache! +🪙${res.coins} pending${res.bonus && res.bonus.kind === 'egg' ? ' + a strange egg' : ''} — now get it HOME.`, 5200);
+  if (res.cursed) {
+    setTimeout(() => {
+      audio.sting();
+      shake = 0.5;
+      for (let i = 0; i < 3; i++) monsters.forceSpawnNear(player);
+      UI.toast('…the cache was ALARMED. The soil around you is moving. RUN!', 5000);
+    }, 2400);
+  }
 }
 
 // ---------- garden ----------
@@ -346,6 +420,7 @@ bus.on('eggFound', ({ tier }) => {
 });
 
 bus.on('banked', ({ coins, items, mult }) => {
+  fishStreak = 0;   // a fresh trip, a shy pond
   audio.coin();
   UI.setMoney(State.money);
   UI.setLevel();
@@ -427,6 +502,7 @@ bus.on('levelup', ({ level, title, unlocks }) => {
   let msg = `⭐ LEVEL ${level} — ${title}!`;
   if (unlocks.includes('garden')) msg += ' 🌱 NEW: your GARDEN is ready in the yard!';
   if (unlocks.includes('pets')) msg += ' 🥚 NEW: PET EGGS now appear in the fields + incubator in the house!';
+  if (unlocks.includes('radioquests')) msg += ' 📻 NEW: the radio has started picking up… numbers. Listen to it each day.';
   UI.toast(msg, 6500);
   submitScores();
 });
@@ -656,6 +732,15 @@ async function beginSleep(forced) {
 
 // ---------- the radio ----------
 function cycleRadio() {
+  // once a day (level 3+), the static resolves into a NUMBER STATION
+  if (broadcastAvailable()) {
+    const b = makeBroadcast();
+    if (b) {
+      audio.numberStation();
+      UI.toast(b.toast, 9500);
+      return;
+    }
+  }
   if (!State.tapes.length) { UI.toast('📻 Static. Find cassette tapes out in the fields to give it songs!'); return; }
   const idx = State.flags.radioIdx ?? -1;
   const next = idx + 1;
@@ -711,6 +796,40 @@ async function wakeUp() {
   busy = false;
 }
 
+// ---------- The Listener ----------
+bus.on('listenerSpawn', () => {
+  audio.listenerStart();
+  audio.whisperNow();
+  if (!State.flags.metListener) {
+    State.flags.metListener = true;
+    UI.toast('📡 Something rises from the wheat. No eyes — only an EAR. It moves when you move. FREEZE.', 7500);
+  } else {
+    UI.toast('📡 The Listener rises. Don\'t. Move.', 4200);
+  }
+});
+
+bus.on('listenerLost', () => {
+  audio.listenerStop();
+  audio.chime();
+  UI.toast(`🗿 It tilts its head… hears nothing… and sinks back into the rows. (out-frozen ×${State.listenersSurvived})`, 4800);
+});
+
+bus.on('listenerCatch', () => {
+  audio.listenerStop();
+  if (pets.tryShield()) { UI.toast('🎃 Your Strawlem stomps off loudly — The Listener follows IT instead!'); audio.chime(); return; }
+  if (State.flags.dreamShield) {
+    State.flags.dreamShield = false;
+    UI.toast('The starlight grin flares around you — The Listener hears only silence.');
+    audio.chime();
+    return;
+  }
+  audio.sting();
+  UI.flash();
+  shake = 0.8;
+  State.sanity = Math.max(0, State.sanity - 35);
+  UI.toast('IT HEARD YOU. The world rings like a struck bell. (−35 calm)');
+});
+
 // ---------- getting caught ----------
 bus.on('creatureAttack', () => {
   if (pets.tryShield()) {
@@ -740,6 +859,7 @@ bus.on('pickup', () => {
 async function blackout() {
   busy = true;
   controls.enabled = false;
+  fishStreak = 0;
   State.blackouts++;
   const hadLoot = Expedition.pendingCount() > 0;
   Expedition.dropBag(player);
@@ -771,6 +891,10 @@ window.__dreams = dreams;
 window.__pos = () => ({ x: +player.x.toFixed(2), y: +player.y.toFixed(2), z: +player.z.toFixed(2) });
 window.__addXp = addXp;
 window.__audio = audio;
+window.__pond = pond;
+window.__listener = listenerEnt;
+window.__dig = { makeBroadcast, digOnce, marker: digMarker };
+window.__ui = UI;
 
 let __frameCount = 0;
 function tick() {
@@ -848,7 +972,12 @@ function tick() {
   if (controls.enabled) {
     creatures.update(dt, player, camera, world.fear, inYard, stillTime);
     monsters.update(dt, player, inYard);
+    listenerEnt.update(dt, player, moving, world.fear, inYard);
   }
+  if (!listenerEnt.active) audio.listenerStop();
+  pond.update(dt, world.fear);
+  digMarker.update(State.playTime);
+  UI.setDig(digHud(player));
   UI.setCrosshair(playing && controls.enabled && !inDream);
 
   // --- expedition: bravery builds outside, loot banks at home ---
@@ -917,6 +1046,12 @@ function tick() {
       if (Math.abs(player.y - h.y) > 1.4) continue;
       const d2 = (player.x - h.x) ** 2 + (player.z - h.z) ** 2;
       if (d2 < h.r * h.r && d2 < best) { best = d2; currentHotspot = h; }
+    }
+    // field "hotspots" — the dock and any active dig site
+    if (!currentHotspot && pond.near(player)) {
+      currentHotspot = { id: 'pond', label: '🎣 fish the dark water' };
+    } else if (!currentHotspot && digMarker.near(player)) {
+      currentHotspot = { id: 'dig', label: () => `⛏ DIG (${(State.digSite ? State.digSite.taps : 0)}/3)` };
     }
   }
   UI.setPrompt(currentHotspot ? (typeof currentHotspot.label === 'function' ? currentHotspot.label() : currentHotspot.label) : null);
