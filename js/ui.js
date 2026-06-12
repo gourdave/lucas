@@ -86,8 +86,18 @@ The whole level is signed, you know. Look at the title of the sky some time.
   },
 ];
 
+// the meals you can make yourself and carry into the fields
+export const MEALS = {
+  nuggets: { name: 'chicken nuggets', emoji: '🍗', hunger: 25, calm: 5 },
+  shrimp: { name: 'shrimp', emoji: '🍤', hunger: 35, calm: 10 },
+  pasta: { name: 'pasta', emoji: '🍝', hunger: 35, calm: 10 },
+  bread: { name: 'fresh bread', emoji: '🍞', hunger: 45, calm: 15 },
+  juice: { name: 'apple juice', emoji: '🧃', hunger: 5, calm: 15, drink: true },
+};
+
 export const UI = {
   onDrink: null,
+  onEat: null,
   onPrompt: null,
   onBookClosed: null,
   onChatClosed: null,
@@ -123,6 +133,19 @@ export const UI = {
     this.chatinput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this._send();
     });
+    // subtle animated film grain, generated at boot
+    const gcv = document.createElement('canvas');
+    gcv.width = gcv.height = 128;
+    const gctx = gcv.getContext('2d');
+    const img = gctx.createImageData(128, 128);
+    for (let i = 0; i < img.data.length; i += 4) {
+      const v = (Math.random() * 255) | 0;
+      img.data[i] = img.data[i + 1] = img.data[i + 2] = v;
+      img.data[i + 3] = 255;
+    }
+    gctx.putImageData(img, 0, 0);
+    document.getElementById('grain').style.background = `url(${gcv.toDataURL()})`;
+
     // keep the chat panel above the soft keyboard on phones
     if (window.visualViewport) {
       visualViewport.addEventListener('resize', () => {
@@ -150,6 +173,25 @@ export const UI = {
   setWater(n) {
     this.watercount.textContent = n;
     this.waterbtn.classList.toggle('hidden', n <= 0);
+  },
+  setHunger(v) {
+    const fill = document.getElementById('hungerfill');
+    fill.style.width = Math.max(0, Math.min(100, v)) + '%';
+    fill.className = v < 25 ? 'low' : '';
+  },
+  // one pocket button per meal type you're carrying — tap to eat
+  setFood(food) {
+    const row = document.getElementById('foodrow');
+    row.innerHTML = '';
+    for (const [id, count] of Object.entries(food)) {
+      if (!count) continue;
+      const meal = MEALS[id];
+      if (!meal) continue;
+      const btn = document.createElement('button');
+      btn.textContent = `${meal.emoji} ×${count}`;
+      btn.addEventListener('click', () => this.onEat && this.onEat(id));
+      row.appendChild(btn);
+    }
   },
   setHome(dist, angle) {
     if (dist < 25) { this.homeinfo.classList.add('hidden'); return; }

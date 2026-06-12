@@ -8,9 +8,13 @@ as long as you stay close to home.
 
 ## The rules of the level
 
-- **The house is safe.** Cook, read, rest. The therapist — a shadow person
-  named Dr. Umbra — sits in the living room and will talk with you about
-  anything. He remembers your dreams, your blackouts, and how far you've walked.
+- **The house is safe.** Read, rest, and make yourself food — stove, oven,
+  microwave, and a fridge with apple juice. Meals go in your pocket: carry
+  chicken nuggets, shrimp, pasta, and fresh bread into the fields and eat
+  them when the FOOD bar runs low (an empty stomach gnaws at your calm).
+  The therapist — a shadow person named Dr. Umbra — sits in the living room
+  and will talk with you about anything. He remembers your dreams, your
+  blackouts, and how far you've walked.
 - **The fields are not.** The further you go, the darker the world follows.
   Deep enough out, tall dark things start walking the wheat. Don't stare at
   them. Don't stand still. Walk home — daylight un-happens them.

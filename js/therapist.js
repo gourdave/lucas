@@ -188,6 +188,15 @@ const BUCKETS = [
     ],
   },
   {
+    match: /(hungry|hunger|food|eat|eating|meal|nugget|nuggets|shrimp|pasta|bread|cook|cooking|bake|baking|microwave|kitchen)/i,
+    lines: [
+      'The kitchen never quite runs out. Stove, oven, microwave — make yourself something and keep it in your pocket for the long walks.',
+      'Chicken nuggets, shrimp, pasta, warm bread. For a level made of wheat, we eat astonishingly well here.',
+      'A full stomach is armor, {name}. The dark can smell an empty one.',
+      'Bake the bread. The twenty seconds of waiting is the closest thing this level has to a clock.',
+    ],
+  },
+  {
     match: /(book|books|read|reading|library|shelf)/i,
     lines: [
       'Read the books. Previous residents left notes in them. Some of the notes are even true.',
@@ -252,6 +261,8 @@ export class RuleBrain {
     } else if (State.dreamLog.length > (f.seenDreams || 0)) {
       f.seenDreams = State.dreamLog.length;
       line = 'You dreamt of {dream}. I watched a little of it. I hope that\'s not strange. It was a good adventure.';
+    } else if (State.hunger < 30) {
+      line = 'I can hear your stomach from here, {name}. Kitchen. Now. Make yourself something — doctor\'s orders.';
     } else if (State.sanity < 35) {
       line = 'You look {sanityWord}. Sit by the lamp a moment. Then eat something warm — that\'s not a suggestion, it\'s a prescription.';
     } else if (State.totalAlmondFound > (f.seenWater || 0)) {

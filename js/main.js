@@ -9,7 +9,7 @@ import { buildHouse } from './house.js';
 import { Creatures } from './creatures.js';
 import { Dreams } from './dreams.js';
 import { buildTherapist, RuleBrain } from './therapist.js';
-import { UI } from './ui.js';
+import { UI, MEALS } from './ui.js';
 import { GameAudio } from './audio.js';
 
 const WALK_SPEED = 4.2;
@@ -20,6 +20,8 @@ const canvas = document.getElementById('c');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: false, powerPreference: 'high-performance' });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.setSize(innerWidth, innerHeight);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;   // filmic color = instant realism
+renderer.toneMappingExposure = 1.15;
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 400);
@@ -44,6 +46,8 @@ let busy = false;            // true while fading / cooking / blacking out
 let stillTime = 0;
 let shake = 0;
 let currentHotspot = null;
+let walkPhase = 0;           // drives the camera bob + footstep timing
+let lastStepSide = 0;
 
 function placeAtSpawn() {
   player.set(0, 0, 11);
@@ -70,6 +74,8 @@ function startGame(fromSave) {
   audio.resume();
   UI.hideTitle();
   UI.setWater(State.inventory.almondWater);
+  UI.setFood(State.inventory.food);
+  UI.setHunger(State.hunger);
   playing = true;
   controls.enabled = true;
   if (!State.flags.welcomed) {
@@ -86,6 +92,9 @@ function interact() {
   const id = currentHotspot.id;
   if (id === 'bed') goToSleep();
   else if (id === 'stove') cook();
+  else if (id === 'oven') oven();
+  else if (id === 'microwave') microwave();
+  else if (id === 'fridge') gainMeal('juice', ' from the fridge', 'grab');
   else if (id === 'shelf') readBook();
   else if (id === 'sofa') rest();
   else if (id === 'therapist') openTherapist();
@@ -108,11 +117,60 @@ function cook() {
   audio.sizzle();
   UI.setPrompt(null);
   setTimeout(() => {
-    State.meals++;
-    State.sanity = Math.min(100, State.sanity + 15);
-    UI.toast('You make yourself a hot meal. The house approves. (+15 calm)');
+    gainMeal(Math.random() < 0.5 ? 'shrimp' : 'pasta', ' on the stove');
     busy = false;
-  }, 1400);
+  }, 1600);
+}
+
+// making food gives you a meal you CARRY — eat it any time from the pocket
+function gainMeal(id, how, verb = 'make yourself') {
+  const food = State.inventory.food;
+  food[id] = (food[id] || 0) + 1;
+  State.meals++;
+  UI.setFood(food);
+  UI.toast(`${MEALS[id].emoji} You ${verb} ${MEALS[id].name}${how}. It goes in your pocket.`);
+}
+
+function eatMeal(id) {
+  const food = State.inventory.food;
+  if (!food[id]) return;
+  food[id]--;
+  const meal = MEALS[id];
+  State.hunger = Math.min(100, State.hunger + meal.hunger);
+  State.sanity = Math.min(100, State.sanity + meal.calm);
+  UI.setFood(food);
+  if (meal.drink) audio.chime(); else audio.munch();
+  UI.toast(`${meal.emoji} You ${meal.drink ? 'drink' : 'eat'} the ${meal.name}. (+${meal.hunger} food, +${meal.calm} calm)`);
+}
+UI.onEat = eatMeal;
+
+function microwave() {
+  busy = true;
+  audio.hum(2.1);
+  UI.setPrompt(null);
+  setTimeout(() => {
+    audio.ding();
+    gainMeal('nuggets', ' — DING!');
+    busy = false;
+  }, 2200);
+}
+
+const BAKE_SECONDS = 20;
+function oven() {
+  const f = State.flags;
+  if (f.ovenStart === undefined) {
+    f.ovenStart = State.playTime;
+    f.ovenDinged = false;
+    audio.blip();
+    UI.toast('You slide a tray of dough into the oven. Come back when it dings (~20s).');
+  } else if (State.playTime - f.ovenStart >= BAKE_SECONDS) {
+    delete f.ovenStart;
+    audio.ding();
+    gainMeal('bread', ', still warm from the oven');
+  } else {
+    const left = Math.ceil(BAKE_SECONDS - (State.playTime - f.ovenStart));
+    UI.toast(`The oven hums softly. About ${left}s to go.`);
+  }
 }
 
 function rest() {
@@ -129,6 +187,7 @@ function rest() {
 function readBook() {
   controls.enabled = false;
   controls.releaseLock();
+  audio.page();
   const book = UI.openBook();
   const first = !State.booksRead.includes(book.id);
   if (first) State.booksRead.push(book.id);
@@ -153,6 +212,7 @@ async function goToSleep() {
   await UI.fade(1, 1.3);
   const def = dreams.begin();
   inDream = true;
+  audio.startDream();
   UI.showDreamTitle(def.title);
   await UI.fade(0, 1.6);
   busy = false;
@@ -161,10 +221,12 @@ async function goToSleep() {
 async function wakeUp() {
   busy = true;
   inDream = false;
+  audio.stopDream();
   await UI.fade(1, 1.1);
   const def = dreams.current;
   State.sleeps++;
   State.sanity = 100;
+  State.hunger = Math.max(0, State.hunger - 15);   // dreaming works up an appetite
   State.dreamLog.push({ id: def.id, title: def.title });
   State.flags.lastDream = def.id;
   if (def.reward.type === 'water') {
@@ -254,8 +316,16 @@ function tick() {
     player.x = out.x;
     player.z = out.z;
     stillTime = 0;
+    // walking bob + a footstep at each end of the sway
+    walkPhase += dt * 7.2;
+    const side = Math.sin(walkPhase) > 0 ? 1 : -1;
+    if (side !== lastStepSide) {
+      lastStepSide = side;
+      audio.step(house.isInside(player.x, player.z) || player.y > 1.5 ? 'wood' : 'grass');
+    }
   } else {
     stillTime += dt;
+    walkPhase *= Math.max(0, 1 - dt * 8);   // settle the bob when standing
   }
   const groundY = house.groundHeight(player.x, player.z, player.y);
   player.y = THREE.MathUtils.damp(player.y, groundY, 14, dt);
@@ -271,6 +341,14 @@ function tick() {
     creatures.update(dt, player, camera, world.fear, inYard, stillTime);
   }
 
+  // --- hunger: drains slowly; an empty stomach gnaws at your calm ---
+  State.hunger = Math.max(0, State.hunger - dt * 0.18);
+  if (State.hunger < 25 && !State.flags.hungryHinted) {
+    State.flags.hungryHinted = true;
+    UI.toast('Your stomach growls. Eat something from your pocket — or go make yourself food.');
+  }
+  if (State.hunger > 40) State.flags.hungryHinted = false;
+
   // --- sanity ---
   let delta = 0;
   if (inside) delta += 3.0;
@@ -279,6 +357,8 @@ function tick() {
     delta -= world.fear * 1.3;
     if (creatures.nearestDist < 15) delta -= 2.2;
   }
+  if (State.hunger <= 0) delta -= 1.2;
+  else if (State.hunger < 25) delta -= 0.5;
   State.sanity = THREE.MathUtils.clamp(State.sanity + delta * dt, 0, 100);
   if (State.sanity <= 0 && !busy) blackout();
 
@@ -296,6 +376,7 @@ function tick() {
 
   // --- HUD ---
   UI.setCalm(State.sanity);
+  UI.setHunger(State.hunger);
   UI.setVignette(State.sanity < 40 ? ((40 - State.sanity) / 40) * 0.95 : 0);
   let rel = Math.atan2(player.x, player.z) - controls.yaw;
   while (rel > Math.PI) rel -= Math.PI * 2;
@@ -305,13 +386,23 @@ function tick() {
   // --- audio mix ---
   audio.update(dt, world.fear, State.sanity);
 
+  // the oven announces itself when the bread is done
+  if (State.flags.ovenStart !== undefined && !State.flags.ovenDinged &&
+      State.playTime - State.flags.ovenStart >= 20) {
+    State.flags.ovenDinged = true;
+    audio.ding();
+    UI.toast('DING! Something in the kitchen smells amazing.');
+  }
+
   // --- camera ---
   shake = Math.max(0, shake - dt * 1.4);
+  const bob = Math.sin(walkPhase) * 0.035;
   camera.rotation.y = controls.yaw;
   camera.rotation.x = controls.pitch;
+  camera.rotation.z = Math.sin(walkPhase * 0.5) * 0.004;
   camera.position.set(
     player.x + (Math.random() - 0.5) * shake * 0.18,
-    player.y + EYE + (Math.random() - 0.5) * shake * 0.18,
+    player.y + EYE + bob + (Math.random() - 0.5) * shake * 0.18,
     player.z + (Math.random() - 0.5) * shake * 0.18
   );
 

@@ -3,11 +3,12 @@
 
 export const State = {
   sanity: 100,          // 0..100, shown as the CALM bar
+  hunger: 100,          // 0..100, shown as the FOOD bar — eat to refill
   distance: 0,          // live distance from the house (meters)
   maxDistance: 0,       // furthest the player has EVER gone (the therapist notices)
   fear: 0,              // 0 = sunny day at home, 1 = deep-field night
   playTime: 0,          // seconds played
-  inventory: { almondWater: 0 },
+  inventory: { almondWater: 0, food: {} },   // food: { nuggets: 2, pasta: 1, ... }
   totalAlmondFound: 0,
   meals: 0,
   sleeps: 0,
@@ -42,6 +43,8 @@ export function load() {
     const data = JSON.parse(raw);
     Object.assign(State, data);
     State.inventory ||= { almondWater: 0 };
+    State.inventory.food ||= {};
+    State.hunger ??= 100;
     State.flags ||= {};
     return true;
   } catch { return false; }

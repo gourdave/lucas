@@ -15,6 +15,7 @@ const HALF = Math.floor(GRID / 2);
 const SLOTS = GRID * GRID;
 
 const WHEAT_N = 380;  // wheat clumps per chunk (≈9.5k instances total)
+const GRASS_N = 300;  // low grass tufts that hide the bare ground
 const TREE_N = 6;
 const BUSH_N = 7;
 const POST_N = 11;
@@ -57,25 +58,50 @@ function crossQuadGeometry(w, h) {
   return g;
 }
 
-// the wheat "art" is painted onto a canvas at boot — no image files anywhere
+// the wheat "art" is painted onto a canvas at boot — no image files anywhere.
+// many thin near-vertical blades + fine seed heads reads as a real crop.
 function makeWheatTexture() {
   const cv = document.createElement('canvas');
-  cv.width = 64; cv.height = 128;
+  cv.width = 128; cv.height = 256;
   const g = cv.getContext('2d');
-  for (let i = 0; i < 6; i++) {
-    const x = 7 + i * 10 + (Math.random() * 4 - 2);
-    g.strokeStyle = 'rgba(255,244,214,0.95)';
-    g.lineWidth = 1.6;
+  for (let i = 0; i < 16; i++) {
+    const x = 5 + i * 7.5 + (Math.random() * 5 - 2.5);
+    const lean = Math.random() * 10 - 5;
+    const top = 30 + Math.random() * 40;
+    const a = 0.55 + Math.random() * 0.4;
+    g.strokeStyle = `rgba(255,246,220,${a})`;
+    g.lineWidth = 1 + Math.random() * 0.8;
     g.beginPath();
-    g.moveTo(x + (Math.random() * 6 - 3), 128);   // stalks stand mostly upright
-    g.quadraticCurveTo(x, 70, x, 26);
+    g.moveTo(x + (Math.random() * 8 - 4), 256);
+    g.quadraticCurveTo(x + lean, 150, x + lean, top);
     g.stroke();
-    g.fillStyle = 'rgba(255,238,190,0.96)';
-    for (let s = 0; s < 7; s++) {
-      g.beginPath();
-      g.ellipse(x + (s % 2 ? -2.4 : 2.4), 35 - s * 3.2, 2.4, 4, 0, 0, Math.PI * 2);
-      g.fill();
+    if (Math.random() < 0.7) {            // most blades carry a seed head
+      g.fillStyle = `rgba(255,240,200,${a})`;
+      for (let s = 0; s < 8; s++) {
+        g.beginPath();
+        g.ellipse(x + lean + (s % 2 ? -1.7 : 1.7), top + 14 - s * 2.6, 1.7, 3.1, 0, 0, Math.PI * 2);
+        g.fill();
+      }
     }
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+function makeGrassTexture() {
+  const cv = document.createElement('canvas');
+  cv.width = 128; cv.height = 128;
+  const g = cv.getContext('2d');
+  for (let i = 0; i < 22; i++) {
+    const x = 4 + i * 5.6 + (Math.random() * 4 - 2);
+    const a = 0.5 + Math.random() * 0.45;
+    g.strokeStyle = `rgba(235,245,210,${a})`;
+    g.lineWidth = 1 + Math.random();
+    g.beginPath();
+    g.moveTo(x + (Math.random() * 8 - 4), 128);
+    g.quadraticCurveTo(x, 70, x + (Math.random() * 14 - 7), 8 + Math.random() * 45);
+    g.stroke();
   }
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -84,19 +110,30 @@ function makeWheatTexture() {
 
 function makeDirtTexture() {
   const cv = document.createElement('canvas');
-  cv.width = 128; cv.height = 128;
+  cv.width = 256; cv.height = 256;
   const g = cv.getContext('2d');
-  g.fillStyle = '#6b6448';
-  g.fillRect(0, 0, 128, 128);
-  for (let i = 0; i < 900; i++) {
+  g.fillStyle = '#6f6a52';
+  g.fillRect(0, 0, 256, 256);
+  // big soft tonal patches break up the obvious tiling
+  const tones = ['#5d5944', '#7a755b', '#67644b', '#736d50', '#615c46'];
+  for (let i = 0; i < 42; i++) {
+    const x = Math.random() * 256, y = Math.random() * 256, r = 18 + Math.random() * 48;
+    const grad = g.createRadialGradient(x, y, 2, x, y, r);
+    const c = tones[(Math.random() * tones.length) | 0];
+    grad.addColorStop(0, c + 'aa');
+    grad.addColorStop(1, c + '00');
+    g.fillStyle = grad;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  for (let i = 0; i < 2400; i++) {
     const v = Math.random();
-    g.fillStyle = v < 0.5 ? 'rgba(40,36,24,0.25)' : 'rgba(190,178,130,0.18)';
-    g.fillRect(Math.random() * 128, Math.random() * 128, 1 + Math.random() * 2, 1 + Math.random() * 2);
+    g.fillStyle = v < 0.5 ? 'rgba(38,34,22,0.22)' : 'rgba(198,186,140,0.16)';
+    g.fillRect(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 2, 1 + Math.random() * 2);
   }
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
-  tex.repeat.set(36, 36);
+  tex.repeat.set(22, 22);
   return tex;
 }
 
@@ -115,23 +152,46 @@ export class World {
     this._pcx = null; this._pcz = null;
     this._poleBase = null;
 
-    this._day = new THREE.Color(0x9aa6ad);     // leaden overcast sky
+    this._day = new THREE.Color(0xaeb9bf);     // leaden overcast sky
     this._night = new THREE.Color(0x07090f);   // deep-field night
     this.skyColor = this._day.clone();
     scene.background = this.skyColor;
     scene.fog = new THREE.FogExp2(this.skyColor.getHex(), 0.012);
     scene.fog.color = this.skyColor;           // fog and sky share one Color object
 
-    this.hemi = new THREE.HemisphereLight(0xc3ccd0, 0x57523f, 1.0);
+    this.hemi = new THREE.HemisphereLight(0xc9d2d6, 0x5d5742, 1.6);
     scene.add(this.hemi);
-    this.dir = new THREE.DirectionalLight(0xfff4e0, 0.65);
+    this.dir = new THREE.DirectionalLight(0xfff4e0, 1.05);
     this.dir.position.set(40, 60, 20);
     scene.add(this.dir);
+
+    // overcast sky dome: a soft vertical gradient that the fog melts into
+    this.skyTop = new THREE.Color();
+    this.skyBottom = new THREE.Color();
+    const skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      fog: false,
+      uniforms: {
+        topColor: { value: this.skyTop },
+        bottomColor: { value: this.skyBottom },
+      },
+      vertexShader: `varying vec3 vPos;
+        void main() { vPos = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+      fragmentShader: `uniform vec3 topColor; uniform vec3 bottomColor; varying vec3 vPos;
+        void main() {
+          float h = normalize(vPos).y;
+          float t = smoothstep(-0.04, 0.5, h);
+          gl_FragColor = vec4(mix(bottomColor, topColor, t), 1.0);
+        }`,
+    });
+    this.dome = new THREE.Mesh(new THREE.SphereGeometry(340, 24, 12), skyMat);
+    scene.add(this.dome);
 
     // ground: one big plane that quietly follows the player
     this.ground = new THREE.Mesh(
       new THREE.PlaneGeometry(260, 260),
-      new THREE.MeshLambertMaterial({ map: makeDirtTexture(), color: 0xb9b2a0 })
+      new THREE.MeshLambertMaterial({ map: makeDirtTexture(), color: 0xd8d2c0 })
     );
     this.ground.rotation.x = -Math.PI / 2;
     scene.add(this.ground);
@@ -162,7 +222,7 @@ export class World {
     const supportsWind = (typeof WebGL2RenderingContext !== 'undefined');
 
     const wheatMat = new THREE.MeshLambertMaterial({
-      map: makeWheatTexture(), alphaTest: 0.45, side: THREE.DoubleSide, color: 0xffffff,
+      map: makeWheatTexture(), alphaTest: 0.4, side: THREE.DoubleSide, color: 0xffffff,
     });
     if (supportsWind) this._windify(wheatMat);
     this.wheat = new THREE.InstancedMesh(crossQuadGeometry(1.8, 1.15), wheatMat, WHEAT_N * SLOTS);
@@ -172,6 +232,17 @@ export class World {
     for (let i = 0; i < WHEAT_N * SLOTS; i++) this.wheat.setColorAt(i, _col.set(0xcdb078));
     this.scene.add(this.wheat);
 
+    // low grass everywhere — hides the bare ground plane, the #1 "blocky" tell
+    const grassMat = new THREE.MeshLambertMaterial({
+      map: makeGrassTexture(), alphaTest: 0.4, side: THREE.DoubleSide, color: 0xffffff,
+    });
+    if (supportsWind) this._windify(grassMat);
+    this.grass = new THREE.InstancedMesh(crossQuadGeometry(1.2, 0.5), grassMat, GRASS_N * SLOTS);
+    this.grass.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    this.grass.frustumCulled = false;
+    for (let i = 0; i < GRASS_N * SLOTS; i++) this.grass.setColorAt(i, _col.set(0x77754e));
+    this.scene.add(this.grass);
+
     const mk = (geo, color, count) => {
       const m = new THREE.InstancedMesh(geo, new THREE.MeshLambertMaterial({ color }), count * SLOTS);
       m.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -179,12 +250,14 @@ export class World {
       this.scene.add(m);
       return m;
     };
-    this.trunks = mk(new THREE.CylinderGeometry(0.16, 0.3, 2.6, 5), 0x4a3b2a, TREE_N);
-    this.canopies = mk(new THREE.ConeGeometry(1.9, 3.6, 6), 0x3a4631, TREE_N);
-    this.bushes = mk(new THREE.IcosahedronGeometry(0.95, 0), 0x46523c, BUSH_N);
+    this.trunks = mk(new THREE.CylinderGeometry(0.14, 0.32, 2.6, 7), 0x4a3b2a, TREE_N);
+    const canopyGeo = new THREE.IcosahedronGeometry(1.9, 1);   // soft round crown
+    canopyGeo.scale(1, 0.85, 1);
+    this.canopies = mk(canopyGeo, 0x4d5c42, TREE_N);
+    this.bushes = mk(new THREE.IcosahedronGeometry(0.95, 1), 0x46523c, BUSH_N);
     this.posts = mk(new THREE.BoxGeometry(0.14, 1.2, 0.14), 0x5d5243, POST_N);
     this.rails = mk(new THREE.BoxGeometry(0.05, 0.06, 4.05), 0x6b5f4c, RAIL_N);
-    this._instanced = [this.wheat, this.trunks, this.canopies, this.bushes, this.posts, this.rails];
+    this._instanced = [this.wheat, this.grass, this.trunks, this.canopies, this.bushes, this.posts, this.rails];
   }
 
   _buildPowerLine() {
@@ -293,6 +366,23 @@ export class World {
       this.wheat.setColorAt(idx, _col);
     }
 
+    // --- low grass scattered everywhere (even fallow plots) ---
+    for (let i = 0; i < GRASS_N; i++) {
+      const idx = slot * GRASS_N + i;
+      const x = bx + rnd() * CHUNK;
+      const z = bz + rnd() * CHUNK;
+      let used = true;
+      if (Math.hypot(x, z) < 16) used = false;
+      if (Math.abs(x) < 2.4 && z > 0 && z < 75) used = false;
+      const s = used ? 0.7 + rnd() * 0.9 : 0.0001;
+      _pos.set(x, 0, z);
+      _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
+      _scl.set(s, s * (0.8 + rnd() * 0.5), s);
+      this.grass.setMatrixAt(idx, _mat.compose(_pos, _quat, _scl));
+      _col.set(0x7c7a52).offsetHSL(0, (rnd() - 0.5) * 0.1, (rnd() - 0.5) * 0.12);
+      this.grass.setColorAt(idx, _col);
+    }
+
     // --- tree line along the north edge of some chunks ---
     const hasTrees = rnd() < 0.4;
     for (let i = 0; i < TREE_N; i++) {
@@ -373,6 +463,7 @@ export class World {
       if (changed) {
         for (const m of this._instanced) m.instanceMatrix.needsUpdate = true;
         if (this.wheat.instanceColor) this.wheat.instanceColor.needsUpdate = true;
+        if (this.grass.instanceColor) this.grass.instanceColor.needsUpdate = true;
       }
     }
 
@@ -396,8 +487,12 @@ export class World {
     const f = this.fear;
     this.skyColor.lerpColors(this._day, this._night, f);
     this.scene.fog.density = 0.012 + f * 0.034;
-    this.hemi.intensity = 1.0 - f * 0.86;
-    this.dir.intensity = 0.65 - f * 0.6;
+    this.hemi.intensity = 1.6 - f * 1.42;
+    this.dir.intensity = 1.05 - f * 0.97;
+    // sky dome: horizon slightly brighter than the zenith = overcast
+    this.skyBottom.copy(this.skyColor).multiplyScalar(1.18);
+    this.skyTop.copy(this.skyColor).multiplyScalar(0.9);
+    this.dome.position.set(playerPos.x, 0, playerPos.z);
 
     // almond water pickups
     for (const bottle of this.bottles) {
