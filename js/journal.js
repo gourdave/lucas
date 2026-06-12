@@ -5,11 +5,13 @@ import { State, bus, save } from './state.js';
 import { PETS } from './pets.js';
 import { CROPS } from './garden.js';
 import { MEALS, BOOKS } from './ui.js';
+import { FISH } from './fishing.js';
 
 export const CREATURE_DEX = {
   worm: { name: 'Wormling', emoji: '🪱', hint: 'surfaces past the 75m mark' },
   shade: { name: 'The Tall One', emoji: '🌑', hint: 'haunts the 150m mark' },
   grin: { name: 'The Grin', emoji: '😶', hint: 'floats in the deep dark' },
+  listener: { name: 'The Listener', emoji: '📡', hint: 'hears footsteps past the 120m mark' },
   harvester: { name: 'THE HARVESTER', emoji: '🎃', hint: 'waits at the barn, past 300m' },
 };
 
@@ -32,6 +34,11 @@ export const BADGES = {
   night: { name: 'Red Sky Survivor', emoji: '🌕', desc: 'Survive a Harvest Night' },
   bag: { name: 'Bag Rescuer', emoji: '🎒', desc: 'Rescue a lost bag' },
   dreamer: { name: 'Frequent Flyer', emoji: '🌙', desc: 'Have 5 dreams' },
+  firstfish: { name: 'First Catch', emoji: '🎣', desc: 'Land a fish at the pond' },
+  pondmaster: { name: 'Pond Master', emoji: '🐟', desc: 'Bank 5 different fish species' },
+  koi: { name: 'Mirror Mirror', emoji: '🪞', desc: 'Land the Mirror Koi' },
+  digger: { name: 'X Marks the Spot', emoji: '⛏', desc: 'Dig up a number-station cache' },
+  statue: { name: 'Living Statue', emoji: '🗿', desc: 'Out-freeze The Listener 3 times' },
 };
 
 function mark(list, id) {
@@ -82,6 +89,12 @@ export function journalSections() {
       })),
     },
     {
+      title: 'FISH', items: Object.entries(FISH).map(([id, f]) => ({
+        emoji: State.fish[id] ? f.emoji : '🌊', name: State.fish[id] ? f.name : '???',
+        sub: State.fish[id] ? `×${State.fish[id]} · ${f.flavor}` : '', got: !!State.fish[id],
+      })),
+    },
+    {
       title: 'BOOKS', items: BOOKS.map((b) => ({
         emoji: '📖', name: State.booksRead.includes(b.id) ? b.title : '???',
         sub: '', got: State.booksRead.includes(b.id),
@@ -123,6 +136,17 @@ export function initJournal() {
   bus.on('creatureSeen', ({ kind }) => mark(State.journal.creatures, kind));
   bus.on('bossKilled', () => { mark(State.journal.creatures, 'harvester'); awardBadge('boss'); });
   bus.on('harvestNightSurvived', () => awardBadge('night'));
+  bus.on('fishCaught', ({ id }) => {
+    awardBadge('firstfish');
+    if (id === 'mirrorkoi') awardBadge('koi');
+  });
+  bus.on('banked', () => {
+    const species = Object.keys(State.fish).filter((id) => State.fish[id] > 0 && FISH[id].rarity !== 'junk');
+    if (species.length >= 5) awardBadge('pondmaster');
+  });
+  bus.on('dug', () => awardBadge('digger'));
+  bus.on('listenerSpawn', () => mark(State.journal.creatures, 'listener'));
+  bus.on('listenerLost', () => { if (State.listenersSurvived >= 3) awardBadge('statue'); });
 }
 
 export function checkDepthBadges(depth) {

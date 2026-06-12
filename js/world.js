@@ -11,6 +11,7 @@ import { State, bus } from './state.js';
 import { unlocked } from './progression.js';
 import { seedForDepth } from './garden.js';
 import { eggTierForDepth, EGG_TIERS } from './pets.js';
+import { POND_POS, POND_R } from './fishing.js';
 
 const CHUNK = 40;
 const GRID = 5;
@@ -417,6 +418,7 @@ export class World {
       let used = type !== 'fallow' || rnd() < 0.06;
       if (Math.hypot(x, z) < 19) used = false;                    // the yard clearing
       if (Math.abs(x) < 2.6 && z > 0 && z < 75) used = false;     // the dirt path
+      if (Math.hypot(x - POND_POS.x, z - POND_POS.z) < POND_R + 2.4) used = false; // the pond
       const s = used ? 0.75 + rnd() * 0.6 : 0.0001;   // chest-high at most
       _pos.set(x, 0, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
@@ -434,6 +436,7 @@ export class World {
       let used = true;
       if (Math.hypot(x, z) < 16) used = false;
       if (Math.abs(x) < 2.4 && z > 0 && z < 75) used = false;
+      if (Math.hypot(x - POND_POS.x, z - POND_POS.z) < POND_R + 1.5) used = false;
       const s = used ? 0.7 + rnd() * 0.9 : 0.0001;
       _pos.set(x, 0, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);

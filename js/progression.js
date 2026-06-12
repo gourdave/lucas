@@ -20,7 +20,7 @@ export const TITLES = [
 ];
 
 // what each level unlocks (gradual onboarding)
-export const UNLOCKS = { garden: 2, pets: 3 };
+export const UNLOCKS = { garden: 2, pets: 3, radioquests: 3 };
 
 export function titleFor(level) {
   let t = TITLES[0][1];
@@ -100,6 +100,7 @@ export const Expedition = {
       if (item.kind === 'egg') State.pets.eggs.push({ tier: item.tier, mult: item.mult || 1, foundAt: gameNow() });
       if (item.kind === 'seed') State.seeds[item.crop] = (State.seeds[item.crop] || 0) + 1;
       if (item.kind === 'tape' && item.id && !State.tapes.includes(item.id)) State.tapes.push(item.id);
+      if (item.kind === 'fish') State.fish[item.id] = (State.fish[item.id] || 0) + 1;
     }
     const hadLoot = banked > 0 || items.length > 0;
     if (hadLoot) addXp(banked / 2 + items.length * 12 + Math.min(40, e.peak / 10));
@@ -157,6 +158,8 @@ const QUEST_POOL = [
   { id: 'water', ev: 'pickup', n: [1, 2], desc: (n) => `Find ${n} almond water in the fields`, coins: 35, xp: 50 },
   { id: 'harvest', ev: 'harvest', n: [2, 4], desc: (n) => `Harvest ${n} crops`, coins: 35, xp: 55, needs: 'garden' },
   { id: 'hatch', ev: 'hatched', n: [1], desc: () => 'Hatch an egg', coins: 60, xp: 90, needs: 'pets' },
+  { id: 'fish', ev: 'fishCaught', n: [1, 2], desc: (n) => `Catch ${n} fish at the pond`, coins: 45, xp: 65 },
+  { id: 'dig', ev: 'dug', n: [1], desc: () => 'Dig up the radio\'s buried cache', coins: 55, xp: 85, needs: 'radioquests' },
 ];
 
 export function ensureDailyQuests() {
@@ -235,4 +238,6 @@ export function initProgression() {
   bus.on('dreamed', () => questProgress('dreamed'));
   bus.on('harvest', () => questProgress('harvest'));
   bus.on('hatched', () => questProgress('hatched'));
+  bus.on('fishCaught', () => questProgress('fishCaught'));
+  bus.on('dug', () => questProgress('dug'));
 }

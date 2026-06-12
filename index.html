@@ -65,6 +65,32 @@
   #pending {
     font-size: 12px; color: #cfe0b8; background: rgba(18,28,12,.55); border-radius: 14px; padding: 3px 11px;
   }
+  #digchip {
+    font-size: 12px; color: #b8e8c8; background: rgba(10,24,16,.6); border-radius: 14px; padding: 3px 11px;
+    border: 1px solid rgba(120,220,160,.25);
+  }
+  /* ---------- the fishing minigame ---------- */
+  #fishbox { width: min(330px, 92vw); }
+  #fisharea { display: flex; align-items: stretch; justify-content: center; gap: 14px; padding: 14px 0 8px; }
+  #fishmsg { text-align: center; font-size: 16px; padding: 10px 14px 0; min-height: 24px; }
+  #fishtrack {
+    position: relative; width: 74px; height: 252px; border-radius: 12px; overflow: hidden;
+    background: linear-gradient(#0c2030, #061018); border: 1px solid rgba(120,180,220,.25);
+    transition: opacity .4s;
+  }
+  #fishtrack.dim { opacity: .35; }
+  #fishzone {
+    position: absolute; left: 0; right: 0; height: 30%;
+    background: rgba(216,178,79,.22); border-top: 2px solid rgba(255,206,84,.6); border-bottom: 2px solid rgba(255,206,84,.6);
+  }
+  #fishzone.in { background: rgba(126,194,126,.3); border-color: rgba(150,255,170,.8); }
+  #fishicon { position: absolute; left: 50%; transform: translateX(-50%); font-size: 24px; bottom: 50%; }
+  #fishprog {
+    width: 14px; height: 252px; border-radius: 8px; overflow: hidden; position: relative;
+    background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.12);
+  }
+  #fishprogfill { position: absolute; bottom: 0; left: 0; right: 0; height: 38%; background: #7ec27e; }
+  #fishhint { text-align: center; font-size: 12px; color: #9a917b; padding: 0 14px 14px; min-height: 16px; }
   #bossbar {
     position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
     z-index: 11; display: flex; flex-direction: column; align-items: center; gap: 4px;
@@ -341,6 +367,7 @@
     <div id="money">🪙 <span id="moneycount">0</span></div>
     <div id="bravery" class="hidden">🔥 ×<span id="braveryval">1.0</span></div>
     <div id="pending" class="hidden">🎒 +<span id="pendingval">0</span></div>
+    <div id="digchip" class="hidden"></div>
   </div>
   <div id="pocket">
     <button id="waterbtn" class="hidden">🧴 ×<span id="watercount">0</span> — drink</button>
@@ -434,6 +461,21 @@
     <div class="panel-head"><span>🏅 LEADERBOARD</span><button id="lbclose">×</button></div>
     <div class="lb-tabs" id="lbtabs"></div>
     <div class="panel-body" id="lbbody"></div>
+  </div>
+</div>
+
+<div id="fishpanel" class="panel-wrap hidden">
+  <div class="panel" id="fishbox">
+    <div class="panel-head"><span>🎣 THE POND</span><button id="fishclose">×</button></div>
+    <div id="fishmsg"></div>
+    <div id="fisharea">
+      <div id="fishtrack" class="dim">
+        <div id="fishzone"></div>
+        <div id="fishicon">🐟</div>
+      </div>
+      <div id="fishprog"><div id="fishprogfill"></div></div>
+    </div>
+    <div id="fishhint"></div>
   </div>
 </div>
 
