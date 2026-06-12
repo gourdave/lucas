@@ -6,6 +6,7 @@
 // The name is the classic parody (the M, flipped). Same joke, no lawyers.
 
 import * as THREE from 'three';
+import { glowSprite } from './gfx.js';
 
 export const WCD_POS = { x: -52, z: -10 };   // ~53m out, west of the house
 export const WCD_R = 11;                      // wheat-clearing radius
@@ -155,6 +156,9 @@ export class WcDonalds {
     const signGlow = new THREE.PointLight(0xf2b32a, 9, 18, 2);
     signGlow.position.set(W / 2 + 3, 8.0, D / 2 + 1.5);
     g.add(signGlow);
+    const halo = glowSprite(0xf2b32a, 7, 0.5);
+    halo.position.set(W / 2 + 3, 8.4, D / 2 + 1.5);
+    g.add(halo);
 
     // interior: that flat fluorescent forever-light
     const ceil = new THREE.PointLight(0xfff6e0, 14, 17, 2);

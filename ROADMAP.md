@@ -28,11 +28,18 @@
   Secrets are never required — bonus loot, badges, and lore only. Plus a
   carved signature behind the barn for thorough explorers.
 
-## NEXT UP (explicitly queued by David, 2026-06-12)
-- **Graphics & texture improvement pass** — the next work item after v8
-  ships. Candidates: richer ground/wheat textures, normal-ish shading
-  tricks, better house materials, distance haze layers, light shafts.
-  Stay procedural (no binary assets) and protect phone framerate.
+- v10 graphics & texture pass: anisotropic filtering on every texture,
+  512px soil with plough scratches + grit, root-shadow gradients on
+  wheat/grass, a drifting overcast CLOUD DECK that dissolves into the
+  deep-field dark, prowling ground-fog wisps past the 100m mark,
+  fake-AO contact shadows under house/barn/WcDonald's, glow halos on
+  the sign + Harvester lantern + porch lights, fear-driven exposure,
+  and an AUTO-QUALITY guard (sustained <20fps sheds the mood layers
+  and drops pixel ratio — game identical). Researched against current
+  three.js mobile guidance: stayed Lambert, no post-processing chain.
+
+## NEXT UP
+- (nothing queued — awaiting the next batch from Lucas/David)
 
 ## The idea ledger (from the Stardew/Minecraft/Roblox brainstorm, 2026-06-12)
 Nothing here gets forgotten. Built items move to "Shipped".

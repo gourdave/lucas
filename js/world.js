@@ -13,6 +13,8 @@ import { seedForDepth } from './garden.js';
 import { eggTierForDepth, EGG_TIERS } from './pets.js';
 import { POND_POS, POND_R } from './fishing.js';
 import { WCD_POS, WCD_R } from './wcdonalds.js';
+import { BARN_POS } from './boss.js';
+import { contactDisc } from './gfx.js';
 
 const CHUNK = 40;
 const GRID = 5;
@@ -69,7 +71,7 @@ function makeWheatTexture() {
   const cv = document.createElement('canvas');
   cv.width = 128; cv.height = 256;
   const g = cv.getContext('2d');
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < 20; i++) {
     const x = 5 + i * 7.5 + (Math.random() * 5 - 2.5);
     const lean = Math.random() * 10 - 5;
     const top = 30 + Math.random() * 40;
@@ -89,6 +91,15 @@ function makeWheatTexture() {
       }
     }
   }
+  // root-shadow: real crops are dark at the soil and pale at the seed heads
+  g.globalCompositeOperation = 'source-atop';
+  const shadeGrad = g.createLinearGradient(0, 0, 0, 256);
+  shadeGrad.addColorStop(0, 'rgba(255,250,225,0.14)');
+  shadeGrad.addColorStop(0.55, 'rgba(0,0,0,0)');
+  shadeGrad.addColorStop(1, 'rgba(38,28,12,0.55)');
+  g.fillStyle = shadeGrad;
+  g.fillRect(0, 0, 128, 256);
+  g.globalCompositeOperation = 'source-over';
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
@@ -108,6 +119,13 @@ function makeGrassTexture() {
     g.quadraticCurveTo(x, 70, x + (Math.random() * 14 - 7), 8 + Math.random() * 45);
     g.stroke();
   }
+  g.globalCompositeOperation = 'source-atop';
+  const shadeGrad = g.createLinearGradient(0, 0, 0, 128);
+  shadeGrad.addColorStop(0, 'rgba(245,255,225,0.1)');
+  shadeGrad.addColorStop(1, 'rgba(20,26,10,0.5)');
+  g.fillStyle = shadeGrad;
+  g.fillRect(0, 0, 128, 128);
+  g.globalCompositeOperation = 'source-over';
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
@@ -115,31 +133,84 @@ function makeGrassTexture() {
 
 function makeDirtTexture() {
   const cv = document.createElement('canvas');
-  cv.width = 256; cv.height = 256;
+  cv.width = 512; cv.height = 512;
   const g = cv.getContext('2d');
   g.fillStyle = '#6f6a52';
-  g.fillRect(0, 0, 256, 256);
+  g.fillRect(0, 0, 512, 512);
   // big soft tonal patches break up the obvious tiling
   const tones = ['#5d5944', '#7a755b', '#67644b', '#736d50', '#615c46'];
-  for (let i = 0; i < 42; i++) {
-    const x = Math.random() * 256, y = Math.random() * 256, r = 18 + Math.random() * 48;
-    const grad = g.createRadialGradient(x, y, 2, x, y, r);
+  for (let i = 0; i < 90; i++) {
+    const x = Math.random() * 512, y = Math.random() * 512, r = 30 + Math.random() * 96;
+    const grad = g.createRadialGradient(x, y, 3, x, y, r);
     const c = tones[(Math.random() * tones.length) | 0];
     grad.addColorStop(0, c + 'aa');
     grad.addColorStop(1, c + '00');
     g.fillStyle = grad;
     g.fillRect(x - r, y - r, r * 2, r * 2);
   }
-  for (let i = 0; i < 2400; i++) {
+  // faint plough scratches — broken little arcs, never a repeating row
+  for (let i = 0; i < 130; i++) {
+    g.strokeStyle = `rgba(44,38,24,${0.08 + Math.random() * 0.1})`;
+    g.lineWidth = 1 + Math.random() * 1.4;
+    const x = Math.random() * 512, y = Math.random() * 512;
+    const len = 20 + Math.random() * 60, a = (Math.random() - 0.5) * 0.7;
+    g.beginPath();
+    g.moveTo(x, y);
+    g.quadraticCurveTo(x + len / 2, y + Math.sin(a) * 8, x + len, y + (Math.random() - 0.5) * 10);
+    g.stroke();
+  }
+  // grit: dark crumbs and pale flecks (tiny stones catching the light)
+  for (let i = 0; i < 9000; i++) {
     const v = Math.random();
-    g.fillStyle = v < 0.5 ? 'rgba(38,34,22,0.22)' : 'rgba(198,186,140,0.16)';
-    g.fillRect(Math.random() * 256, Math.random() * 256, 1 + Math.random() * 2, 1 + Math.random() * 2);
+    g.fillStyle = v < 0.5 ? 'rgba(38,34,22,0.22)' : v < 0.94 ? 'rgba(198,186,140,0.16)' : 'rgba(232,226,200,0.3)';
+    g.fillRect(Math.random() * 512, Math.random() * 512, 1 + Math.random() * 2, 1 + Math.random() * 2);
   }
   const tex = new THREE.CanvasTexture(cv);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
   tex.repeat.set(22, 22);
   return tex;
+}
+
+// the eternally-overcast cloud deck: soft blobs on a slow-drifting dome
+function makeCloudTexture() {
+  const cv = document.createElement('canvas');
+  cv.width = 512; cv.height = 256;
+  const g = cv.getContext('2d');
+  for (let i = 0; i < 110; i++) {
+    const x = Math.random() * 512;
+    const y = 30 + Math.random() * 170;
+    const r = 18 + Math.random() * 64;
+    const a = 0.04 + Math.random() * 0.1;
+    const grad = g.createRadialGradient(x, y, r * 0.15, x, y, r);
+    const tone = Math.random() < 0.6 ? '236,239,241' : '205,212,218';
+    grad.addColorStop(0, `rgba(${tone},${a})`);
+    grad.addColorStop(1, `rgba(${tone},0)`);
+    g.fillStyle = grad;
+    g.fillRect(x - r, y - r, r * 2, r * 2);
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.wrapS = THREE.RepeatWrapping;
+  return tex;
+}
+
+// a soft horizontal wisp for the ground-fog billboards: ONE smooth elongated
+// gradient (discrete blobs read as rows of dots at a distance — learned that)
+function makeFogTexture() {
+  const cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 64;
+  const g = cv.getContext('2d');
+  g.save();
+  g.translate(128, 36);
+  g.scale(4.2, 1);                       // stretch the radial into a long wisp
+  const grad = g.createRadialGradient(0, 0, 2, 0, 0, 30);
+  grad.addColorStop(0, 'rgba(255,255,255,0.5)');
+  grad.addColorStop(0.6, 'rgba(255,255,255,0.22)');
+  grad.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = grad;
+  g.fillRect(-32, -36, 64, 72);
+  g.restore();
+  return new THREE.CanvasTexture(cv);
 }
 
 const _pos = new THREE.Vector3();
@@ -194,6 +265,42 @@ export class World {
     });
     this.dome = new THREE.Mesh(new THREE.SphereGeometry(340, 24, 12), skyMat);
     scene.add(this.dome);
+
+    // the cloud deck rides just inside the sky dome, drifting forever
+    this.cloudTex = makeCloudTexture();
+    this.cloudMat = new THREE.MeshBasicMaterial({
+      map: this.cloudTex, transparent: true, opacity: 0.5,
+      side: THREE.BackSide, depthWrite: false, fog: false,
+    });
+    this.clouds = new THREE.Mesh(
+      new THREE.SphereGeometry(330, 24, 10, 0, Math.PI * 2, 0, Math.PI / 2), this.cloudMat);
+    this.clouds.renderOrder = 1;
+    scene.add(this.clouds);
+
+    // low fog that prowls the deep fields (billboards; only visible when feared)
+    this.fogTex = makeFogTexture();
+    this.fogQuads = [];
+    for (let i = 0; i < 6; i++) {
+      const q = new THREE.Mesh(new THREE.PlaneGeometry(30, 7),
+        new THREE.MeshBasicMaterial({
+          map: this.fogTex, transparent: true, opacity: 0, depthWrite: false, fog: false,
+        }));
+      q.userData.angle = (i / 6) * Math.PI * 2;
+      q.userData.dist = 26 + i * 7;
+      q.renderOrder = 2;
+      scene.add(q);
+      this.fogQuads.push(q);
+    }
+
+    // fake contact shadows ground the landmarks to the soil
+    const houseAO = contactDisc(11);
+    scene.add(houseAO);
+    const barnAO = contactDisc(9);
+    barnAO.position.set(BARN_POS.x, 0.025, BARN_POS.z);
+    scene.add(barnAO);
+    const wcdAO = contactDisc(10);
+    wcdAO.position.set(WCD_POS.x, 0.025, WCD_POS.z);
+    scene.add(wcdAO);
 
     // ground: one big plane that quietly follows the player
     this.ground = new THREE.Mesh(
@@ -382,6 +489,12 @@ export class World {
     this.bag.add(beam);
     this.bag.visible = false;
     this.scene.add(this.bag);
+  }
+
+  // weak phone? shed the pure-mood layers, keep the game identical
+  setLowQuality() {
+    this.clouds.visible = false;
+    for (const q of this.fogQuads) q.visible = false;
   }
 
   // for the Wheat Sprite pet: rough direction of the nearest visible treasure
@@ -592,6 +705,21 @@ export class World {
     this.skyBottom.copy(this.skyColor).multiplyScalar(1.18);
     this.skyTop.copy(this.skyColor).multiplyScalar(0.9);
     this.dome.position.set(playerPos.x, 0, playerPos.z);
+    // clouds drift, then dissolve into the deep-field dark
+    this.clouds.position.set(playerPos.x, 0, playerPos.z);
+    this.cloudTex.offset.x += dt * 0.0024;
+    this.cloudMat.opacity = 0.5 * (1 - f * 0.92);
+    // ground fog prowls in a slow ring; only thick when the dread is.
+    // tinted to the live sky so it reads as haze, never as glowing shapes
+    for (const q of this.fogQuads) {
+      q.userData.angle += dt * 0.012;
+      const a = q.userData.angle;
+      q.position.set(playerPos.x + Math.cos(a) * q.userData.dist, 1.9,
+        playerPos.z + Math.sin(a) * q.userData.dist);
+      q.lookAt(playerPos.x, 1.7, playerPos.z);
+      q.material.color.copy(this.skyColor).multiplyScalar(1.6);
+      q.material.opacity = f * 0.22;
+    }
 
     // almond water pickups
     for (const bottle of this.bottles) {
