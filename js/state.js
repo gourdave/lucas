@@ -32,6 +32,9 @@ export const State = {
   digsDone: 0,
   listenersSurvived: 0, // times you froze until The Listener gave up
   mysteries: {},        // string-wall threads: { gnome: { found, solved, shots } }
+  camps: [],            // placed campsites: [{ x, z }]
+  campKits: 0,          // unplaced kits in your pack
+  borrowerStash: null,  // { x, z, coins } — where the Borrower dropped your loot
   lbName: '',           // auto-generated leaderboard name
   bossKills: 0,
   distance: 0,          // live distance from the house (meters)
@@ -106,6 +109,9 @@ export function load() {
     State.digsDone ??= 0;
     State.listenersSurvived ??= 0;
     State.mysteries ??= {};
+    State.camps ??= [];
+    State.campKits ??= 0;
+    State.borrowerStash ??= null;
     State.lbName ??= '';
     State.bossKills ??= 0;
     State.flags ||= {};

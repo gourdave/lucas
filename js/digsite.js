@@ -9,6 +9,7 @@ import * as THREE from 'three';
 import { State, bus, save, todayStr } from './state.js';
 import { POND_POS } from './fishing.js';
 import { BARN_POS } from './boss.js';
+import { MAZE_POS } from './maze.js';
 
 const DIG_TAPS = 3;          // shovelfuls to reach the box
 
@@ -45,7 +46,8 @@ export function makeBroadcast() {
     tries++;
   } while (tries < 20 && (
     Math.hypot(x - POND_POS.x, z - POND_POS.z) < 35 ||
-    Math.hypot(x - BARN_POS.x, z - BARN_POS.z) < 45));
+    Math.hypot(x - BARN_POS.x, z - BARN_POS.z) < 45 ||
+    Math.hypot(x - MAZE_POS.x, z - MAZE_POS.z) < 45));
   State.digSite = { x: Math.round(x), z: Math.round(z), taps: 0 };
   State.flags.lastBroadcast = todayStr();
   save();

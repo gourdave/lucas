@@ -164,6 +164,7 @@ export const UI = {
     this.chatinput = $('chatinput');
 
     this.waterbtn.addEventListener('click', () => this.onDrink && this.onDrink());
+    $('campbtn').addEventListener('click', () => this.onCamp && this.onCamp());
     this.prompt.addEventListener('click', () => this.onPrompt && this.onPrompt());
     $('bookclose').addEventListener('click', () => {
       this.book.classList.add('hidden');
@@ -278,6 +279,15 @@ export const UI = {
   },
   setPetsButton(show) {
     document.getElementById('petsbtn').classList.toggle('hidden', !show);
+  },
+  // the camp-kit button: visible while carrying kits, enabled where placeable
+  setCampBtn(kits, canPlace) {
+    const el = $('campbtn');
+    el.classList.toggle('hidden', kits <= 0);
+    if (kits <= 0) return;
+    el.disabled = !canPlace;
+    const text = `⛺ ×${kits} — set up camp`;
+    if (el.textContent !== text) el.textContent = text;
   },
   // the scribbled note from the number station (null hides it)
   setDig(text) {

@@ -29,6 +29,9 @@ import { seedForDepth } from './garden.js';
 import { WcDonalds, MENU, EMPLOYEE_LINES } from './wcdonalds.js';
 import { pinMystery, solveMystery, MYSTERIES, buildBoard, buildCarving, Gnome, WindowFigure } from './mysteries.js';
 import { todayStr } from './state.js';
+import { Maze, MAZE_POS, mazeChestAvailable } from './maze.js';
+import { Borrower } from './borrower.js';
+import { Camps, CAMP_RATE, MAX_CAMPS } from './camps.js';
 
 const WALK_SPEED = 4.2;
 const EYE = 1.62;
@@ -85,6 +88,9 @@ const pond = new Pond(scene);
 const digMarker = new DigSiteMarker(scene);
 const listenerEnt = new Listener(scene);
 const wcd = new WcDonalds(scene);
+const maze = new Maze(scene);
+const borrowerEnt = new Borrower(scene);
+const camps = new Camps(scene);
 const gnome = new Gnome(scene);
 const windowFigure = new WindowFigure(scene);
 buildBoard(scene);
@@ -176,6 +182,8 @@ function interact() {
   else if (id === 'dig') doDig();
   else if (id === 'wcd') openOrder();
   else if (id === 'wall') openWall();
+  else if (id === 'mazechest') openMazeChest();
+  else if (id === 'campfire') campFireAction();
   else if (id.startsWith('plot')) usePlot(+id.slice(4));
 }
 
@@ -251,6 +259,88 @@ function openOrder() {
     controls.enabled = true;
   });
 }
+
+// ---------- the corn maze ----------
+function openMazeChest() {
+  const reward = maze.openChest();
+  if (!reward) { UI.toast('🌽 The chest is empty today. The maze refills it overnight. Somehow.'); return; }
+  audio.fanfare();
+  Expedition.addCoins(reward.coins);
+  Expedition.addItem({ kind: 'egg', tier: 'storm', mult: 2 });
+  addXp(50);
+  UI.toast(`🌽 THE HEART OF THE MAZE! +🪙${reward.coins} pending + a storm egg. Now find your way OUT.`, 6500);
+}
+
+// ---------- camps ----------
+function placeCamp() {
+  if (State.campKits <= 0) return;
+  if (!camps.canPlaceAt(player, house.isInYard(player.x, player.z))) {
+    UI.toast('⛺ Not here — camps need open field: past the 60m mark and away from other camps.');
+    return;
+  }
+  State.campKits--;
+  State.camps.push({ x: Math.round(player.x * 10) / 10, z: Math.round(player.z * 10) / 10 });
+  save();
+  camps.refresh();
+  audio.dig();
+  audio.chime();
+  bus.emit('campPlaced', {});
+  UI.toast('⛺ Camp set! Inside the firelight nothing hunts you, calm returns, and the fire banks loot at 70%. Carrying it home still pays full Bravery.', 8000);
+}
+UI.onCamp = placeCamp;
+
+function campFireAction() {
+  if (Expedition.pendingCount() > 0) {
+    audio.coin();
+    Expedition.bank(CAMP_RATE);
+    UI.toast('🔥 Banked at the fire — safe, but at the 70% camp rate. (Bravery resets; the walk home pays full.)', 6000);
+  } else {
+    const i = camps.atFire(player);
+    if (i < 0) return;
+    State.camps.splice(i, 1);
+    State.campKits = Math.min(MAX_CAMPS, State.campKits + 1);
+    save();
+    camps.refresh();
+    audio.blip();
+    UI.toast('⛺ Camp packed up — the kit is back in your pack.');
+  }
+}
+
+// ---------- The Borrower ----------
+bus.on('borrowerSpawn', () => {
+  audio.giggle();
+  UI.toast(State.flags.metBorrower
+    ? '🎒 The Borrower! It smells your pending coins — KEEP MOVING or LIGHT IT UP.'
+    : '🎒 Something small and fast bursts from the rows, eyes on your loot. It doesn\'t want to hurt you. It wants your COINS.', 6000);
+  State.flags.metBorrower = true;
+});
+bus.on('borrowerSteal', ({ coins }) => {
+  audio.giggle();
+  audio.sting();
+  UI.flash();
+  shake = 0.4;
+  UI.toast(`🎒 IT GRABBED 🪙${coins} OF YOUR PENDING LOOT! Shoot it before it gets away!`, 5500);
+});
+bus.on('borrowerDropped', ({ coins }) => {
+  audio.chime();
+  audio.coin();
+  UI.toast(`🪙 It shrieks, drops your ${coins} coins, and dives into the soil. Respect earned.`, 5000);
+});
+bus.on('borrowerScared', () => {
+  audio.pop();
+  UI.toast('🎒 The Borrower flinches from your light and vanishes, empty-handed.');
+});
+bus.on('borrowerEscaped', ({ stash }) => {
+  let rel = Math.atan2(stash.x - player.x, -(stash.z - player.z));
+  const dirs = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
+  const dir = dirs[((Math.round(rel / (Math.PI / 4)) % 8) + 8) % 8];
+  const d = Math.round(Math.hypot(stash.x - player.x, stash.z - player.z));
+  UI.toast(`🎒 It got away… but it BURIED your coins under a light beam, ${d}m ${dir}. Borrowers don't keep. They stash.`, 7000);
+});
+bus.on('stashReclaimed', ({ coins }) => {
+  audio.chime();
+  UI.toast(`🪙 Dug your ${coins} coins out of the Borrower's stash — pending again. Get them home!`, 5000);
+});
 
 // ---------- the string wall ----------
 function openWall() {
@@ -437,6 +527,11 @@ function fire() {
     _candPos.y += 2.6;
     consider(_candPos, boss, 'boss');
   }
+  if (borrowerEnt.active) {
+    _candPos.copy(borrowerEnt.mesh.position);
+    _candPos.y += 0.7;
+    consider(_candPos, borrowerEnt, 'borrower');
+  }
 
   // a streak of light from the muzzle
   gunTip.getWorldPosition(_muzzle);
@@ -452,6 +547,8 @@ function fire() {
     monsters.hit(best.obj, gun.dmg);
   } else if (best && best.kind === 'boss') {
     boss.hit(gun.dmg);
+  } else if (best && best.kind === 'borrower') {
+    best.obj.hit();
   } else if (best && best.kind === 'hallucination') {
     if (State.playTime - immuneToastAt > 6) {
       immuneToastAt = State.playTime;
@@ -1000,6 +1097,10 @@ window.__wcd = wcd;
 window.__gnome = gnome;
 window.__figure = windowFigure;
 window.__forceStill = (s) => { stillTime = s; };
+window.__maze = maze;
+window.__borrower = borrowerEnt;
+window.__camps = camps;
+window.__placeCamp = placeCamp;
 
 // auto-quality: if a phone can't hold ~20fps for a while, quietly shed the
 // mood layers (clouds, ground fog) and drop the pixel ratio. game unchanged.
@@ -1052,8 +1153,9 @@ function tick() {
     const dx = (-sin * mv.y + cos * mv.x) * WALK_SPEED * speedMult * dt;
     const dz = (-cos * mv.y - sin * mv.x) * WALK_SPEED * speedMult * dt;
     const out = house.collide(player.x, player.z, player.x + dx, player.z + dz, player.y);
-    player.x = out.x;
-    player.z = out.z;
+    const out2 = maze.collide(player.x, player.z, out.x, out.z);
+    player.x = out2.x;
+    player.z = out2.z;
     stillTime = 0;
     // walking bob + a footstep at each end of the sway
     walkPhase += dt * 7.2;
@@ -1096,12 +1198,23 @@ function tick() {
   // window panes mirror the sky by day and glow warm in the dark — a beacon home
   house.windowMat.color.copy(world.skyColor).lerp(_warmWindow, world.fear * 0.85);
   therapist.update(dt, player);
+  // a campfire's circle counts as home, as far as the hunting things know
+  const inCamp = camps.inCamp(player);
+  const safe = inYard || inCamp;
   if (controls.enabled) {
-    creatures.update(dt, player, camera, world.fear, inYard, stillTime);
-    monsters.update(dt, player, inYard);
-    listenerEnt.update(dt, player, moving, world.fear, inYard);
+    creatures.update(dt, player, camera, world.fear, safe, stillTime);
+    monsters.update(dt, player, safe);
+    listenerEnt.update(dt, player, moving, world.fear, safe);
+    borrowerEnt.update(dt, player, safe, Expedition.pendingCount());
   }
   if (!listenerEnt.active) audio.listenerStop();
+  maze.update(dt, State.playTime, player);
+  camps.update(dt, State.playTime);
+  UI.setCampBtn(State.campKits, camps.canPlaceAt(player, inYard));
+  if (!State.flags.sawMaze && maze.inMazeArea(player)) {
+    State.flags.sawMaze = true;
+    UI.toast('🌽 THE CORN MAZE. The walls are taller than anything should grow. Something glows at its heart. You cannot see what is coming.', 7000);
+  }
   pond.update(dt, world.fear);
   digMarker.update(State.playTime);
   UI.setDig(digHud(player));
@@ -1171,6 +1284,7 @@ function tick() {
   let delta = 0;
   if (inside) delta += 3.0;
   else if (inYard) delta += 1.6;
+  else if (inCamp) delta += 2.2;       // the fire keeps the dark honest
   else {
     delta -= world.fear * 1.3;
     if (creatures.nearestDist < 15) delta -= 2.2;
@@ -1198,6 +1312,13 @@ function tick() {
       currentHotspot = { id: 'dig', label: () => `⛏ DIG (${(State.digSite ? State.digSite.taps : 0)}/3)` };
     } else if (!currentHotspot && wcd.nearCounter(player)) {
       currentHotspot = { id: 'wcd', label: '🍟 Order at the counter' };
+    } else if (!currentHotspot && maze.nearChest(player)) {
+      currentHotspot = { id: 'mazechest', label: mazeChestAvailable() ? '🌽 OPEN THE CHEST' : '🌽 Chest (empty today)' };
+    } else if (!currentHotspot && camps.atFire(player) >= 0) {
+      currentHotspot = {
+        id: 'campfire',
+        label: () => Expedition.pendingCount() > 0 ? '🔥 Bank loot here (70%)' : '⛺ Pack up camp',
+      };
     }
   }
   UI.setPrompt(currentHotspot ? (typeof currentHotspot.label === 'function' ? currentHotspot.label() : currentHotspot.label) : null);

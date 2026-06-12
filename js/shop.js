@@ -31,6 +31,12 @@ export const SHOP_ITEMS = [
     buy() { State.seeds.glowcorn = (State.seeds.glowcorn || 0) + 2; },
   },
   {
+    id: 'campkit', name: 'Camp Kit', emoji: '⛺', price: 120, repeat: true,
+    desc: 'Firewood, stones, and a stubborn little tent. Set it up deep in the fields: a safe circle where you can rest and bank loot at 70%. Max 3 out at once.',
+    locked: () => State.campKits + State.camps.length >= 3,
+    buy() { State.campKits++; },
+  },
+  {
     id: 'recipe_stew', name: 'Recipe: Golden Stew', emoji: '🥘', price: 60,
     desc: 'Teaches your stove to make golden stew. Huge meal, warms the soul.',
     owned: () => State.recipes.includes('stew'),

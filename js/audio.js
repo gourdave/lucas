@@ -449,6 +449,22 @@ export class GameAudio {
     this._listener = null;
   }
 
+  // The Borrower's nasty little laugh
+  giggle() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    [1244, 1480, 1108, 1318, 988].forEach((f, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = f;
+      const g = ctx.createGain();
+      this._env(g, t + i * 0.055, 0.07, 0.005, 0.09);
+      osc.connect(g).connect(this.master);
+      osc.start(t + i * 0.055);
+      osc.stop(t + i * 0.055 + 0.12);
+    });
+  }
+
   // camera shutter for photo mode
   shutter() {
     if (!this.ctx) return;
