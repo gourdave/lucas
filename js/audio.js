@@ -309,6 +309,58 @@ export class GameAudio {
 
   whisperNow() { this._whisper(); }
 
+  // ---------- the radio: little generative tunes per cassette ----------
+  startTape(style) {
+    this.stopTape();
+    if (!this.ctx) return;
+    const ctx = this.ctx;
+    this.tapeGain = ctx.createGain();
+    this.tapeGain.gain.value = 0.16;
+    this.tapeGain.connect(this.master);
+    const PAT = {
+      spooky: { base: 110, wave: 'sine', tempo: 420, notes: [0, 3, 7, 3, 0, 3, 8, 7, 0, 3, 7, 10, 8, 7, 3, 1] },
+      chill: { base: 220, wave: 'triangle', tempo: 340, notes: [0, 4, 7, 12, 9, 7, 4, 2, 0, 4, 9, 7, 12, 9, 4, 7] },
+      bit: { base: 330, wave: 'square', tempo: 170, notes: [0, 0, 7, 0, 5, 4, 2, 4, 0, 0, 7, 9, 5, 4, 2, 0] },
+      rain: { base: 165, wave: 'sine', tempo: 600, notes: [0, 7, 12, 7, 5, 12, 7, 3] },
+      hero: { base: 196, wave: 'triangle', tempo: 260, notes: [0, 4, 7, 12, 7, 12, 14, 12, 7, 4, 7, 12, 16, 14, 12, 7] },
+    };
+    const p = PAT[style] || PAT.chill;
+    let step = 0;
+    this._tapeTimer = setInterval(() => {
+      if (ctx.state !== 'running') return;
+      const t = ctx.currentTime;
+      const semis = p.notes[step % p.notes.length];
+      const osc = ctx.createOscillator();
+      osc.type = p.wave;
+      osc.frequency.value = p.base * Math.pow(2, semis / 12);
+      const g = ctx.createGain();
+      this._env(g, t, style === 'bit' ? 0.5 : 0.8, 0.02, p.tempo / 1000 * 1.4);
+      osc.connect(g).connect(this.tapeGain);
+      osc.start(t);
+      osc.stop(t + p.tempo / 1000 * 1.6);
+      step++;
+    }, p.tempo);
+  }
+
+  stopTape() {
+    if (this._tapeTimer) clearInterval(this._tapeTimer);
+    this._tapeTimer = null;
+    if (this.tapeGain) { try { this.tapeGain.disconnect(); } catch {} }
+    this.tapeGain = null;
+  }
+
+  // camera shutter for photo mode
+  shutter() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const n = ctx.createBufferSource();
+    n.buffer = this._noiseBuffer(0.06);
+    const g = ctx.createGain();
+    this._env(g, t, 0.18, 0.002, 0.05);
+    n.connect(g).connect(this.master);
+    n.start(t);
+  }
+
   // level-up fanfare: a bright ascending arpeggio
   fanfare() {
     if (!this.ctx) return;

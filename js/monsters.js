@@ -53,6 +53,20 @@ export class Monsters {
 
   list() { return this.pool.filter((m) => m.active && m.state !== 'DIE'); }
 
+  // used by The Harvester and Harvest Night
+  forceSpawnNear(playerPos) {
+    const m = this.pool.find((p) => !p.active);
+    if (!m) return;
+    const a = Math.random() * Math.PI * 2;
+    m.active = true;
+    m.hp = 2;
+    m.state = 'HUNT';
+    m.sink = 1;
+    m.mesh.position.set(playerPos.x + Math.cos(a) * 10, -0.9, playerPos.z + Math.sin(a) * 10);
+    m.mesh.visible = true;
+    m.mesh.scale.set(1, 1, 1);
+  }
+
   _spawn(playerPos) {
     const m = this.pool.find((p) => !p.active);
     if (!m) return;
@@ -92,10 +106,11 @@ export class Monsters {
     this.nearestDist = Infinity;
 
     const zone = State.distance > SURFACE_AT && !inYard;
-    const cap = State.distance > 150 ? 3 : 2;
+    let cap = State.distance > 150 ? 3 : 2;
+    if (this.frenzy) cap = 3; // Harvest Night: everything is awake
     if (zone && this.spawnTimer <= 0 && this.list().length < cap) {
-      this.spawnTimer = 3;
-      if (Math.random() < 0.5) this._spawn(playerPos);
+      this.spawnTimer = this.frenzy ? 1.2 : 3;
+      if (Math.random() < (this.frenzy ? 0.9 : this.cartNoise ? 0.72 : 0.5)) this._spawn(playerPos);
     }
 
     const t = performance.now() / 1000;

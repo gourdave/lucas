@@ -157,6 +157,8 @@ export class World {
 
     this._day = new THREE.Color(0xaeb9bf);     // leaden overcast sky
     this._night = new THREE.Color(0x07090f);   // deep-field night
+    this._bloodNight = new THREE.Color(0x2a0708); // harvest night
+    this.harvestNight = false;
     this.skyColor = this._day.clone();
     scene.background = this.skyColor;
     scene.fog = new THREE.FogExp2(this.skyColor.getHex(), 0.012);
@@ -332,6 +334,7 @@ export class World {
     this.bottles = [];
     this.pouches = [];
     this.eggs = [];
+    this.tapes = [];
     const pouchGeo = new THREE.SphereGeometry(0.18, 7, 6);
     const pouchMat = new THREE.MeshLambertMaterial({ color: 0x8a6a3e, emissive: 0x2e2010 });
     const eggGeo = new THREE.SphereGeometry(0.2, 9, 8);
@@ -356,6 +359,12 @@ export class World {
       egg.visible = false;
       this.scene.add(egg);
       this.eggs.push(egg);
+
+      const tape = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.06, 0.2),
+        new THREE.MeshLambertMaterial({ color: 0x2a2a30, emissive: 0x101018 }));
+      tape.visible = false;
+      this.scene.add(tape);
+      this.tapes.push(tape);
     }
 
     // the lost bag: a little sack with a light pillar so it's findable at night
@@ -376,7 +385,7 @@ export class World {
   // for the Wheat Sprite pet: rough direction of the nearest visible treasure
   nearestTreasureDir(pos, range) {
     let best = null, bestD = range;
-    for (const list of [this.bottles, this.pouches, this.eggs]) {
+    for (const list of [this.bottles, this.pouches, this.eggs, this.tapes]) {
       for (const m of list) {
         if (!m.visible) continue;
         const d = Math.hypot(m.position.x - pos.x, m.position.z - pos.z);
@@ -516,6 +525,14 @@ export class World {
     } else {
       egg.visible = false;
     }
+    const tape = this.tapes[slot];
+    if (centerDist > 100 && rnd() < 0.07 && State.tapes.length < 5 && !State.collectedPickups.includes('t:' + id)) {
+      tape.position.set(bx + 8 + rnd() * 24, 0.12, bz + 8 + rnd() * 24);
+      tape.visible = true;
+      tape.userData.id = 't:' + id;
+    } else {
+      tape.visible = false;
+    }
     return true;
   }
 
@@ -558,7 +575,7 @@ export class World {
     State.fear = this.fear;
 
     const f = this.fear;
-    this.skyColor.lerpColors(this._day, this._night, f);
+    this.skyColor.lerpColors(this._day, this.harvestNight ? this._bloodNight : this._night, this.harvestNight ? Math.max(f, 0.85) : f);
     this.scene.fog.density = 0.012 + f * 0.034;
     this.hemi.intensity = 1.6 - f * 1.42;
     this.dir.intensity = 1.05 - f * 0.97;
@@ -597,6 +614,15 @@ export class World {
         egg.visible = false;
         State.collectedPickups.push(egg.userData.id);
         bus.emit('eggFound', { tier: egg.userData.tier });
+      }
+    }
+    for (const tape of this.tapes) {
+      if (!tape.visible) continue;
+      const dx = tape.position.x - playerPos.x, dz = tape.position.z - playerPos.z;
+      if (dx * dx + dz * dz < 2.3) {
+        tape.visible = false;
+        State.collectedPickups.push(tape.userData.id);
+        bus.emit('tapeFound', {});
       }
     }
     // the lost bag, if one is out there

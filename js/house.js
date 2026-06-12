@@ -431,6 +431,7 @@ export function buildHouse(scene) {
     { id: 'therapist', x: -4.0, y: 0, z: -1.7, r: 2.0, label: '🕯  Talk to the therapist' },
     { id: 'shop', x: 6.2, y: 0, z: 17.2, r: 2.2, label: '🌾  Browse The Crop Exchange' },
     { id: 'incubator', x: 5.0, y: 0, z: 3.5, r: 1.3, label: '🥚  Egg incubator', locked: 'pets' },
+    { id: 'radio', x: -2.6, y: 0, z: -3.5, r: 1.3, label: '📻  Radio' },
     { id: 'chest', x: 1.45, y: 0, z: 5.6, r: 1.4, label: '🎁  Daily gift' },
   ];
 

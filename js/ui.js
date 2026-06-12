@@ -5,6 +5,8 @@ import { State, save } from './state.js';
 import { SHOP_ITEMS, purchase } from './shop.js';
 import { getClaudeKey, setClaudeKey } from './therapist.js';
 import { claimQuest, xpNeed } from './progression.js';
+import { journalSections } from './journal.js';
+import { BOARDS, fetchBoard, ensureLbName, rerollLbName } from './lb.js';
 import { CROPS } from './garden.js';
 import { PETS, RARITY } from './pets.js';
 
@@ -149,6 +151,11 @@ export const UI = {
     });
     $('questsbtn').addEventListener('click', () => this.onOpenQuests && this.onOpenQuests());
     $('petsbtn').addEventListener('click', () => this.onOpenPets && this.onOpenPets());
+    $('journalbtn').addEventListener('click', () => this.onOpenJournal && this.onOpenJournal());
+    $('lbbtn').addEventListener('click', () => this.onOpenLb && this.onOpenLb());
+    $('photobtn').addEventListener('click', () => this.onPhoto && this.onPhoto());
+    $('journalclose').addEventListener('click', () => { $('journalpanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
+    $('lbclose').addEventListener('click', () => { $('lbpanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
     $('chatsend').addEventListener('click', () => this._send());
     this.chatinput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this._send();
@@ -330,6 +337,72 @@ export const UI = {
       head.textContent = `🥚 Eggs waiting: ${State.pets.eggs.length} — take them to the incubator in the house!`;
       wrap.appendChild(head);
     }
+  },
+
+  // ---------- the collection journal ----------
+  openJournal() {
+    const { sections, pct } = journalSections();
+    $('journalpct').textContent = pct + '% complete';
+    const body = $('journalbody');
+    body.innerHTML = '';
+    for (const sec of sections) {
+      const head = document.createElement('div');
+      head.className = 'j-section';
+      head.textContent = sec.title;
+      body.appendChild(head);
+      const grid = document.createElement('div');
+      grid.className = 'j-grid';
+      for (const it of sec.items) {
+        const el = document.createElement('div');
+        el.className = 'j-item' + (it.got ? '' : ' missing');
+        el.innerHTML = `<span>${it.emoji}</span><span>${it.name}${it.sub ? ' <span style="color:#8d8470">· ' + it.sub + '</span>' : ''}</span>`;
+        grid.appendChild(el);
+      }
+      body.appendChild(grid);
+    }
+    $('journalpanel').classList.remove('hidden');
+  },
+
+  // ---------- the leaderboard ----------
+  async openLb(initialBoard = 'depth') {
+    const tabs = $('lbtabs');
+    tabs.innerHTML = '';
+    for (const [id, b] of Object.entries(BOARDS)) {
+      const btn = document.createElement('button');
+      btn.textContent = `${b.emoji} ${b.name}`;
+      if (id === initialBoard) btn.className = 'active';
+      btn.addEventListener('click', () => this.openLb(id));
+      tabs.appendChild(btn);
+    }
+    const body = $('lbbody');
+    body.innerHTML = '<div class="ri-sub" style="text-align:center">loading…</div>';
+    $('lbpanel').classList.remove('hidden');
+    const top = await fetchBoard(initialBoard);
+    const myName = ensureLbName();
+    body.innerHTML = '';
+    const me = document.createElement('div');
+    me.className = 'rowitem';
+    me.innerHTML = `<div class="ri-main"><div class="ri-title">You are <b>${myName}</b></div>
+      <div class="ri-sub">auto-generated name — no real names on the board</div></div>`;
+    const reroll = document.createElement('button');
+    reroll.textContent = '🎲 new name';
+    reroll.addEventListener('click', () => { rerollLbName(); this.openLb(initialBoard); });
+    me.appendChild(reroll);
+    body.appendChild(me);
+    if (!top) {
+      body.insertAdjacentHTML('beforeend', '<div class="ri-sub" style="text-align:center">The board is asleep right now — try again later!</div>');
+      return;
+    }
+    if (!top.length) {
+      body.insertAdjacentHTML('beforeend', '<div class="ri-sub" style="text-align:center">Nobody yet. Be the first!</div>');
+    }
+    top.forEach((row, i) => {
+      const el = document.createElement('div');
+      el.className = 'lb-row' + (row.name === myName ? ' me' : '');
+      const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : (i + 1) + '.';
+      el.innerHTML = `<span class="lb-rank">${medal}</span><span class="lb-name">${row.name}</span><span>${row.score}${BOARDS[initialBoard].unit}</span>`;
+      body.appendChild(el);
+    });
   },
 
   // ---------- generic picker (seeds, eggs) ----------

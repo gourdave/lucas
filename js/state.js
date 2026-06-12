@@ -20,6 +20,15 @@ export const State = {
   garden: { plots: [null, null, null, null, null, null] }, // {crop, plantedAt}
   seeds: {},            // { goldenwheat: 2, ... }
   pets: { owned: [], active: null, eggs: [], incubating: null },
+  stardust: 0,          // dream currency
+  dreamPerks: [],       // bought with stardust
+  tapes: [],            // cassette ids found in the fields
+  decor: [],            // furniture bought at the stall
+  rides: [],            // 'bike', 'cart'
+  ride: null,           // equipped ride
+  journal: { creatures: [], crops: [], mealsMade: [], badges: [] },
+  lbName: '',           // auto-generated leaderboard name
+  bossKills: 0,
   distance: 0,          // live distance from the house (meters)
   maxDistance: 0,       // furthest the player has EVER gone (the therapist notices)
   fear: 0,              // 0 = sunny day at home, 1 = deep-field night
@@ -80,6 +89,15 @@ export function load() {
     State.garden ??= { plots: [null, null, null, null, null, null] };
     State.seeds ??= {};
     State.pets ??= { owned: [], active: null, eggs: [], incubating: null };
+    State.stardust ??= 0;
+    State.dreamPerks ??= [];
+    State.tapes ??= [];
+    State.decor ??= [];
+    State.rides ??= [];
+    State.ride ??= null;
+    State.journal ??= { creatures: [], crops: [], mealsMade: [], badges: [] };
+    State.lbName ??= '';
+    State.bossKills ??= 0;
     State.flags ||= {};
     return true;
   } catch { return false; }

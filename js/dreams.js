@@ -17,7 +17,7 @@ function coneStalk(scene, x, y, z, s, color) {
   return m;
 }
 
-const DREAMS = [
+export const DREAMS = [
   {
     id: 'islands',
     title: 'The Floating Plots',
@@ -195,6 +195,62 @@ const DREAMS = [
   },
 ];
 
+// the rare NIGHTMARE — big stardust, big nerves (still kid-safe: you always wake)
+export const NIGHTMARE = {
+  id: 'nightmare',
+  title: 'THE NIGHTMARE',
+  reward: { type: 'lore', text: 'You snap awake. Your pockets are full of stardust and your heart is full of drums.' },
+  build() {
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a0406);
+    scene.fog = new THREE.FogExp2(0x1a0406, 0.05);
+    scene.add(new THREE.HemisphereLight(0x883333, 0x180404, 0.9));
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(300, 300),
+      new THREE.MeshLambertMaterial({ color: 0x140a0a }));
+    ground.rotation.x = -Math.PI / 2;
+    scene.add(ground);
+    // a ring of grins, slowly closing in
+    this._ring = [];
+    const mat = new THREE.MeshBasicMaterial({ color: 0xe8d8c8, fog: false, transparent: true, opacity: 0.85 });
+    for (let i = 0; i < 8; i++) {
+      const grin = new THREE.Group();
+      for (let j = 0; j <= 8; j++) {
+        const a = (j / 8) * Math.PI;
+        const tooth = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 6), mat);
+        tooth.position.set(Math.cos(a) * 0.7, -Math.sin(a) * 0.4, 0);
+        grin.add(tooth);
+      }
+      for (const ex of [-0.4, 0.4]) {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 6, 6), mat);
+        eye.position.set(ex, 0.5, 0);
+        grin.add(eye);
+      }
+      grin.userData.angle = (i / 8) * Math.PI * 2;
+      scene.add(grin);
+      this._ring.push(grin);
+    }
+    // dead wheat silhouettes
+    for (let i = 0; i < 50; i++) {
+      const a = Math.random() * Math.PI * 2, dd = 6 + Math.random() * 30;
+      const m = new THREE.Mesh(new THREE.ConeGeometry(0.06, 1.6, 4),
+        new THREE.MeshLambertMaterial({ color: 0x241010 }));
+      m.position.set(Math.cos(a) * dd, 0.8, Math.sin(a) * dd);
+      scene.add(m);
+    }
+    return scene;
+  },
+  update(t, camera) {
+    camera.position.set(Math.sin(t * 0.7) * 0.4, 1.6, Math.cos(t * 0.5) * 0.4);
+    const close = Math.max(4, 26 - t * 0.75);   // they creep closer... but never arrive
+    for (const grin of this._ring) {
+      const a = grin.userData.angle + t * 0.06;
+      grin.position.set(Math.cos(a) * close, 1.6 + Math.sin(t * 2 + a) * 0.2, Math.sin(a) * close);
+      grin.lookAt(camera.position);
+    }
+    camera.lookAt(Math.sin(t * 0.3) * 10, 1.4, -10);
+  },
+};
+
 export class Dreams {
   constructor() {
     this.active = false;
@@ -204,10 +260,10 @@ export class Dreams {
     this._wake = false;
   }
 
-  begin() {
+  begin(forced) {
     const seen = State.dreamLog.map(d => d.id);
     const fresh = DREAMS.filter(d => !seen.includes(d.id));
-    const pick = (fresh.length ? fresh : DREAMS)[Math.floor(Math.random() * (fresh.length ? fresh.length : DREAMS.length))];
+    let pick = forced || (fresh.length ? fresh : DREAMS)[Math.floor(Math.random() * (fresh.length ? fresh.length : DREAMS.length))];
     this.current = pick;
     this.scene = pick.build();
     this.t = 0;
