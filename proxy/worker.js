@@ -49,6 +49,14 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
     }
+    // friendly status page — lets you verify the worker by visiting its URL
+    if (request.method === 'GET') {
+      return new Response(JSON.stringify({
+        ok: true,
+        service: 'Dr. Umbra proxy',
+        keyConfigured: Boolean(env.ANTHROPIC_API_KEY),
+      }), { headers: { 'content-type': 'application/json' } });
+    }
     if (request.method !== 'POST' || !allowed) {
       return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: cors });
     }

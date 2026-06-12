@@ -1,0 +1,8 @@
+{
+  // Tells Cloudflare (connected to this repo) what to deploy:
+  // the Dr. Umbra proxy worker. The game itself stays on GitHub Pages.
+  "name": "bumpercrop-umbra",
+  "main": "proxy/worker.js",
+  "compatibility_date": "2026-06-01",
+  "workers_dev": true
+}
