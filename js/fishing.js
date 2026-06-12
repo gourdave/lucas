@@ -10,7 +10,7 @@
 import * as THREE from 'three';
 import { State } from './state.js';
 
-export const POND_POS = { x: 95, z: -110 };   // ~145m out, east of the path
+export const POND_POS = { x: 42, z: -43 };   // ~60m out — past the fence, before the danger (wormlings start at 75m)
 export const POND_R = 9;                       // water radius
 
 // speed = how jittery the fish fights (higher = harder catch)
