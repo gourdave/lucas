@@ -3,6 +3,7 @@
 // recipes, calm upgrades, and better guns.
 
 import { State, bus, save } from './state.js';
+import { unlocked } from './progression.js';
 
 export const GUNS = {
   flare: { name: 'Flare Pistol', emoji: '🔫', dmg: 1, cooldown: 0.55, color: 0xffd28a },
@@ -15,6 +16,18 @@ export const SHOP_ITEMS = [
     id: 'calmbar', name: 'Calm Bar', emoji: '🍫', price: 25, repeat: true,
     desc: 'A chocolate bar that tastes like a deep breath. +40 calm, carried in your pocket.',
     buy() { State.inventory.food.calmbar = (State.inventory.food.calmbar || 0) + 1; },
+  },
+  {
+    id: 'seeds_wheat', name: 'Golden Wheat Seeds ×2', emoji: '🌾', price: 12, repeat: true,
+    desc: 'Plant them in your garden plots. Ready in 10 minutes.',
+    locked: () => !unlocked('garden'),
+    buy() { State.seeds.goldenwheat = (State.seeds.goldenwheat || 0) + 2; },
+  },
+  {
+    id: 'seeds_glowcorn', name: 'Glowcorn Seeds ×2', emoji: '🌽', price: 30, repeat: true,
+    desc: 'A brighter crop for patient farmers. Ready in 45 minutes.',
+    locked: () => !unlocked('garden'),
+    buy() { State.seeds.glowcorn = (State.seeds.glowcorn || 0) + 2; },
   },
   {
     id: 'recipe_stew', name: 'Recipe: Golden Stew', emoji: '🥘', price: 60,

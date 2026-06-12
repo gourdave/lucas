@@ -396,6 +396,29 @@ export function buildHouse(scene) {
     group.add(ring);
   }
 
+  // ----- the egg incubator (unlocks with pets at level 3) -----
+  const incBase = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 0.5, 10),
+    new THREE.MeshLambertMaterial({ color: 0x55483a }));
+  incBase.position.set(5.3, 0.25, 3.9);
+  group.add(incBase);
+  const incDome = new THREE.Mesh(new THREE.SphereGeometry(0.4, 12, 10),
+    new THREE.MeshLambertMaterial({ color: 0xbcd8d2, transparent: true, opacity: 0.35 }));
+  incDome.position.set(5.3, 0.75, 3.9);
+  group.add(incDome);
+  const incGlow = new THREE.PointLight(0xffd9a0, 6, 4, 2);
+  incGlow.position.set(5.3, 0.8, 3.9);
+  group.add(incGlow);
+
+  // ----- the daily gift box on the porch -----
+  const giftMat = new THREE.MeshLambertMaterial({ color: 0xa8484f });
+  const gift = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.4, 0.5), giftMat);
+  gift.position.set(1.45, 0.28, 5.15);
+  group.add(gift);
+  const ribbon = new THREE.Mesh(new THREE.BoxGeometry(0.54, 0.08, 0.12),
+    new THREE.MeshLambertMaterial({ color: 0xe8d24f }));
+  ribbon.position.set(1.45, 0.5, 5.15);
+  group.add(ribbon);
+
   // ================= interaction hotspots =================
   const hotspots = [
     { id: 'bed', x: 3.3, y: FLOOR2, z: 2.6, r: 1.8, label: '🛏  Sleep' },
@@ -407,6 +430,8 @@ export function buildHouse(scene) {
     { id: 'sofa', x: -3.9, y: 0, z: 1.9, r: 1.6, label: '🛋  Rest a while' },
     { id: 'therapist', x: -4.0, y: 0, z: -1.7, r: 2.0, label: '🕯  Talk to the therapist' },
     { id: 'shop', x: 6.2, y: 0, z: 17.2, r: 2.2, label: '🌾  Browse The Crop Exchange' },
+    { id: 'incubator', x: 5.0, y: 0, z: 3.5, r: 1.3, label: '🥚  Egg incubator', locked: 'pets' },
+    { id: 'chest', x: 1.45, y: 0, z: 5.6, r: 1.4, label: '🎁  Daily gift' },
   ];
 
   // ================= movement helpers =================

@@ -59,6 +59,67 @@
   #money {
     font-size: 13px; color: #e8d49a; background: rgba(20,16,8,.5); border-radius: 14px; padding: 4px 12px;
   }
+  #bravery {
+    font-size: 13px; color: #f0b078; background: rgba(40,18,8,.55); border-radius: 14px; padding: 4px 12px;
+  }
+  #pending {
+    font-size: 12px; color: #cfe0b8; background: rgba(18,28,12,.55); border-radius: 14px; padding: 3px 11px;
+  }
+  #levellabel { font-size: 10px; letter-spacing: .25em; color: #d8b24f; }
+  #xpfill { height: 100%; width: 0%; background: #d8b24f; border-radius: 5px; }
+  #hudbtns { display: flex; gap: 7px; margin-top: 8px; }
+  #hudbtns button {
+    pointer-events: auto; width: 36px; height: 36px; border-radius: 50%; border: 1px solid rgba(216,178,79,.45);
+    background: rgba(20,17,10,.7); font-size: 16px; cursor: pointer;
+  }
+  /* generic panel reused by quests / pets / pickers */
+  .panel-wrap {
+    position: fixed; inset: 0; z-index: 35; display: flex; align-items: center; justify-content: center;
+    background: rgba(4,5,7,.72); padding: 14px;
+  }
+  .panel {
+    width: min(520px, 100%); max-height: 82vh; display: flex; flex-direction: column;
+    background: rgba(16,14,10,.96); border: 1px solid rgba(216,178,79,.4); border-radius: 14px; overflow: hidden;
+  }
+  .panel-head {
+    display: flex; justify-content: space-between; align-items: center; padding: 12px 16px;
+    font-size: 13px; letter-spacing: .2em; color: #d8b24f; background: rgba(60,44,16,.4);
+  }
+  .panel-head button { background: none; border: none; color: #c9b89a; font-size: 22px; cursor: pointer; line-height: 1; }
+  .panel-body { overflow-y: auto; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .rowitem {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
+  }
+  .rowitem .ri-main { flex: 1; }
+  .rowitem .ri-title { font-size: 14px; color: #e8dcc2; }
+  .rowitem .ri-sub { font-size: 11.5px; color: #97907c; margin-top: 2px; }
+  .rowitem button {
+    font-size: 12px; padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer;
+    background: #d8b24f; color: #14130c; font-weight: 600; white-space: nowrap;
+  }
+  .rowitem button:disabled { background: rgba(255,255,255,.12); color: #777; }
+  .rowitem button.ghost3 { background: transparent; color: #b3a883; border: 1px solid rgba(216,178,79,.4); }
+  .qbar { height: 6px; border-radius: 3px; background: rgba(255,255,255,.1); margin-top: 6px; overflow: hidden; }
+  .qbar > div { height: 100%; background: #9fc28a; border-radius: 3px; }
+  .pet-name-input {
+    font-size: 13px; padding: 4px 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,.15);
+    background: rgba(255,255,255,.06); color: #e8dcc2; width: 130px;
+  }
+  /* hatch reveal */
+  #hatch {
+    position: fixed; inset: 0; z-index: 50; display: flex; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; background: radial-gradient(circle, #2a2418 0%, #08070a 75%);
+  }
+  #hatch .h-emoji { font-size: 90px; animation: hatchpop .7s ease-out; }
+  @keyframes hatchpop { 0% { transform: scale(0); } 70% { transform: scale(1.25); } 100% { transform: scale(1); } }
+  #hatch .h-rarity { font-size: 14px; letter-spacing: .45em; font-weight: 700; }
+  #hatch .h-name { font-size: 26px; color: #f0e8d2; letter-spacing: .1em; }
+  #hatch .h-ability { font-size: 13px; color: #a89e84; }
+  #hatch button {
+    margin-top: 14px; font-size: 16px; padding: 12px 38px; border-radius: 8px; border: none;
+    background: #d8b24f; color: #14130c; font-weight: 700; cursor: pointer;
+  }
   #crosshair {
     position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
     width: 5px; height: 5px; border-radius: 50%; z-index: 9; pointer-events: none;
@@ -234,10 +295,17 @@
   <div id="calmwrap">
     CALM<div class="bar"><div id="calmfill"></div></div>
     <div style="margin-top:5px">FOOD<div class="bar"><div id="hungerfill"></div></div></div>
+    <div style="margin-top:5px"><span id="levellabel">LV 1</span><div class="bar"><div id="xpfill"></div></div></div>
+    <div id="hudbtns">
+      <button id="questsbtn">📜</button>
+      <button id="petsbtn" class="hidden">🐾</button>
+    </div>
   </div>
   <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
     <div id="homeinfo" class="hidden"><span id="homearrow">▲</span><span id="homedist">0m</span></div>
     <div id="money">🪙 <span id="moneycount">0</span></div>
+    <div id="bravery" class="hidden">🔥 ×<span id="braveryval">1.0</span></div>
+    <div id="pending" class="hidden">🎒 +<span id="pendingval">0</span></div>
   </div>
   <div id="pocket">
     <button id="waterbtn" class="hidden">🧴 ×<span id="watercount">0</span> — drink</button>
@@ -301,6 +369,35 @@
     <div id="shopnote">The scarecrow says nothing. The prices are on little wooden tags.</div>
     <div id="shopitems"></div>
   </div>
+</div>
+
+<div id="quests" class="panel-wrap hidden">
+  <div class="panel">
+    <div class="panel-head"><span>📜 DR. UMBRA'S DAILY QUESTS</span><button id="questsclose">×</button></div>
+    <div class="panel-body" id="questlist"></div>
+  </div>
+</div>
+
+<div id="petspanel" class="panel-wrap hidden">
+  <div class="panel">
+    <div class="panel-head"><span>🐾 YOUR PETS</span><button id="petsclose">×</button></div>
+    <div class="panel-body" id="petlist"></div>
+  </div>
+</div>
+
+<div id="picker" class="panel-wrap hidden">
+  <div class="panel">
+    <div class="panel-head"><span id="pickertitle">CHOOSE</span><button id="pickerclose">×</button></div>
+    <div class="panel-body" id="pickerlist"></div>
+  </div>
+</div>
+
+<div id="hatch" class="hidden">
+  <div class="h-emoji" id="hatchemoji">🥚</div>
+  <div class="h-rarity" id="hatchrarity"></div>
+  <div class="h-name" id="hatchname"></div>
+  <div class="h-ability" id="hatchability"></div>
+  <button id="hatchok">AWESOME!</button>
 </div>
 
 <div id="chat" class="hidden">
