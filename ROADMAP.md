@@ -18,6 +18,16 @@
   and The Regulars: monsters at the tables who just eat their food and mind
   their own business. Parody name on purpose (trademark safety).
 
+- v9 the string wall (Phase K, Outer-Wilds-inspired): a corkboard of
+  mysteries that pin themselves as you notice clues, with hints that grow
+  more generous each unsolved day (frustration has a shelf life). Four
+  launch threads: the WANDERING GNOME (relocates only while unobserved —
+  photograph it in 5 spots), the UPSTAIRS WINDOW figure (exists only in
+  photographs), the scarecrow's SWEET TOOTH (a book's margin notes are
+  true), and TRIBUTE TO STATUES (stand perfectly still 60s in the fields).
+  Secrets are never required — bonus loot, badges, and lore only. Plus a
+  carved signature behind the barn for thorough explorers.
+
 ## NEXT UP (explicitly queued by David, 2026-06-12)
 - **Graphics & texture improvement pass** — the next work item after v8
   ships. Candidates: richer ground/wheat textures, normal-ish shading

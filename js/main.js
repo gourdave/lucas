@@ -27,6 +27,8 @@ import { DigSiteMarker, broadcastAvailable, makeBroadcast, digHud, digOnce } fro
 import { Listener } from './listener.js';
 import { seedForDepth } from './garden.js';
 import { WcDonalds, MENU, EMPLOYEE_LINES } from './wcdonalds.js';
+import { pinMystery, solveMystery, MYSTERIES, buildBoard, buildCarving, Gnome, WindowFigure } from './mysteries.js';
+import { todayStr } from './state.js';
 
 const WALK_SPEED = 4.2;
 const EYE = 1.62;
@@ -80,6 +82,11 @@ const pond = new Pond(scene);
 const digMarker = new DigSiteMarker(scene);
 const listenerEnt = new Listener(scene);
 const wcd = new WcDonalds(scene);
+const gnome = new Gnome(scene);
+const windowFigure = new WindowFigure(scene);
+buildBoard(scene);
+buildCarving(scene, BARN_POS);
+house.hotspots.push({ id: 'wall', x: 0.3, y: 0, z: -3.9, r: 1.4, label: '🧵  The string wall' });
 const allHotspots = () => house.hotspots.concat(garden.plotHotspots());
 const dreams = new Dreams();
 const therapist = buildTherapist(scene);
@@ -165,6 +172,7 @@ function interact() {
   else if (id === 'pond') startFishing();
   else if (id === 'dig') doDig();
   else if (id === 'wcd') openOrder();
+  else if (id === 'wall') openWall();
   else if (id.startsWith('plot')) usePlot(+id.slice(4));
 }
 
@@ -240,6 +248,19 @@ function openOrder() {
     controls.enabled = true;
   });
 }
+
+// ---------- the string wall ----------
+function openWall() {
+  controls.enabled = false;
+  controls.releaseLock();
+  audio.page();
+  UI.openWall();
+}
+
+bus.on('mysteryPinned', ({ id }) => {
+  audio.page();
+  UI.toast(`🧵 A new thread pins itself to your string wall: “${MYSTERIES[id].title}”`, 5500);
+});
 
 // ---------- digging up the radio's numbers ----------
 function doDig() {
@@ -590,8 +611,11 @@ UI.onOpenLb = () => {
 };
 UI.onPhoto = () => {
   if (!playing) return;
+  // some things exist only in photographs
+  const figureInShot = !inDream && windowFigure.prePhoto(player, camera);
   renderer.render(inDream ? dreams.scene : scene, inDream ? dreams.camera : camera);
   const data = canvas.toDataURL('image/png');
+  windowFigure.postPhoto();
   const a = document.createElement('a');
   a.href = data;
   a.download = 'bumpercrop-' + Date.now() + '.png';
@@ -599,6 +623,26 @@ UI.onPhoto = () => {
   audio.shutter();
   UI.flash();
   UI.toast('📸 Snapped! Saved to your downloads.');
+  if (inDream) return;
+  pinMystery('window');   // the first photo is the first clue
+  if (figureInShot && solveMystery('window')) {
+    setTimeout(() => {
+      audio.whisperNow();
+      UI.toast('…wait. Look at the photo again. Who is that in the upstairs window?', 7000);
+    }, 1800);
+  }
+  // gnome evidence
+  const m = State.mysteries.gnome;
+  const before = m && m.shots ? m.shots.length : 0;
+  if (gnome.photographed(camera)) {
+    const shots = State.mysteries.gnome.shots.length;
+    if (shots >= 5 && before < 5) {
+      audio.fanfare();
+      setTimeout(() => UI.toast('🧙 Five spots. Five photos. The gnome accepts defeat — and starts chipping in on your daily gift.', 7000), 1800);
+    } else {
+      setTimeout(() => UI.toast(`🧙 Evidence! (${shots}/5 spots photographed)`, 3500), 1800);
+    }
+  }
 };
 UI.onPanelClosed = () => { controls.enabled = true; };
 UI.onQuestClaimed = (q) => {
@@ -702,6 +746,9 @@ function readBook() {
   if (first) State.booksRead.push(book.id);
   State.reads++;
   addCalm(first ? 10 : 3);
+  // some books carry true secrets — reading one pins the thread
+  if (book.id === 'midnight') pinMystery('cookies');
+  if (book.id === 'patience') pinMystery('stillness');
   UI.onBookClosed = () => { controls.enabled = true; };
 }
 
@@ -721,6 +768,18 @@ function openTherapist() {
 }
 
 function openShop() {
+  // the scarecrow's sweet tooth: arrive with wheat cookies in your pocket
+  const m = State.mysteries.cookies;
+  if ((State.inventory.food.cookies || 0) > 0 && !(m && m.solved)) {
+    State.inventory.food.cookies--;
+    solveMystery('cookies');
+    State.money += 60;
+    State.inventory.food.calmbar = (State.inventory.food.calmbar || 0) + 2;
+    UI.setMoney(State.money);
+    UI.setFood(State.inventory.food);
+    audio.chime();
+    UI.toast('🍪 The cookie is gone from your pocket. The scarecrow has not moved. Two calm bars and 🪙60 sit under the price tags. It says nothing. It is delighted.', 8000);
+  }
   controls.enabled = false;
   controls.releaseLock();
   audio.blip();
@@ -935,6 +994,9 @@ window.__listener = listenerEnt;
 window.__dig = { makeBroadcast, digOnce, marker: digMarker };
 window.__ui = UI;
 window.__wcd = wcd;
+window.__gnome = gnome;
+window.__figure = windowFigure;
+window.__forceStill = (s) => { stillTime = s; };
 
 let __frameCount = 0;
 function tick() {
@@ -1020,6 +1082,16 @@ function tick() {
   UI.setDig(digHud(player));
   // WcDonald's: tracking heads, regulars regular-ing, the odd polite munch
   if (wcd.update(dt, State.playTime, player)) audio.munch();
+  // the gnome relocates strictly while unobserved
+  if (controls.enabled) gnome.update(dt, player, camera);
+  // tribute to statues: a full minute of stillness out in the fields
+  if (!inYard && State.distance > 50 && stillTime > 60 && State.flags.tributeDay !== todayStr()) {
+    State.flags.tributeDay = todayStr();
+    solveMystery('stillness');
+    Expedition.addCoins(20);
+    audio.chime();
+    UI.toast('🗿 The fields forgot you were here. A wormling surfaces, sets down 🪙20, and leaves without a word. Tribute. (pending)', 6500);
+  }
   if (!State.flags.sawWcd && wcd.nearBuilding(player)) {
     State.flags.sawWcd = true;
     bus.emit('wcdSeen', {});
