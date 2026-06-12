@@ -2,8 +2,14 @@
 // Everything in State must stay JSON-safe so it can be saved to localStorage.
 
 export const State = {
-  sanity: 100,          // 0..100, shown as the CALM bar
+  sanity: 100,          // 0..maxSanity, shown as the CALM bar
+  maxSanity: 100,       // can be upgraded at the shop
   hunger: 100,          // 0..100, shown as the FOOD bar — eat to refill
+  money: 0,             // grain coins, earned by popping monsters
+  kills: 0,
+  guns: ['flare'],      // owned guns; everyone starts with the Flare Pistol
+  gun: 'flare',         // equipped gun
+  recipes: [],          // recipe ids bought at the shop
   distance: 0,          // live distance from the house (meters)
   maxDistance: 0,       // furthest the player has EVER gone (the therapist notices)
   fear: 0,              // 0 = sunny day at home, 1 = deep-field night
@@ -45,6 +51,12 @@ export function load() {
     State.inventory ||= { almondWater: 0 };
     State.inventory.food ||= {};
     State.hunger ??= 100;
+    State.money ??= 0;
+    State.maxSanity ??= 100;
+    State.kills ??= 0;
+    State.guns ??= ['flare'];
+    State.gun ??= 'flare';
+    State.recipes ??= [];
     State.flags ||= {};
     return true;
   } catch { return false; }

@@ -2,6 +2,7 @@
 // the therapist chat panel. Other modules never touch the DOM directly.
 
 import { State } from './state.js';
+import { SHOP_ITEMS, purchase } from './shop.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -93,6 +94,9 @@ export const MEALS = {
   pasta: { name: 'pasta', emoji: '🍝', hunger: 35, calm: 10 },
   bread: { name: 'fresh bread', emoji: '🍞', hunger: 45, calm: 15 },
   juice: { name: 'apple juice', emoji: '🧃', hunger: 5, calm: 15, drink: true },
+  calmbar: { name: 'calm bar', emoji: '🍫', hunger: 10, calm: 40 },
+  stew: { name: 'golden stew', emoji: '🥘', hunger: 60, calm: 20 },
+  cookies: { name: 'wheat cookies', emoji: '🍪', hunger: 20, calm: 25 },
 };
 
 export const UI = {
@@ -129,6 +133,7 @@ export const UI = {
       this.onBookClosed && this.onBookClosed();
     });
     $('chatclose').addEventListener('click', () => this.closeChat());
+    $('shopclose').addEventListener('click', () => this.closeShop());
     $('chatsend').addEventListener('click', () => this._send());
     this.chatinput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this._send();
@@ -178,6 +183,12 @@ export const UI = {
     const fill = document.getElementById('hungerfill');
     fill.style.width = Math.max(0, Math.min(100, v)) + '%';
     fill.className = v < 25 ? 'low' : '';
+  },
+  setMoney(n) {
+    document.getElementById('moneycount').textContent = n;
+  },
+  setCrosshair(on) {
+    document.getElementById('crosshair').classList.toggle('hidden', !on);
   },
   // one pocket button per meal type you're carrying — tap to eat
   setFood(food) {
@@ -244,6 +255,45 @@ export const UI = {
     $('bookbody').textContent = book.body;
     this.book.classList.remove('hidden');
     return book;
+  },
+
+  // ---------- the shop ----------
+  openShop() {
+    $('shop').classList.remove('hidden');
+    this._renderShop();
+  },
+  closeShop() {
+    $('shop').classList.add('hidden');
+    this.onShopClosed && this.onShopClosed();
+  },
+  _renderShop() {
+    $('shopmoney').textContent = '🪙 ' + State.money;
+    const wrap = $('shopitems');
+    wrap.innerHTML = '';
+    for (const item of SHOP_ITEMS) {
+      const owned = item.owned && item.owned();
+      const locked = item.locked && item.locked();
+      const row = document.createElement('div');
+      row.className = 'shopitem';
+      const btnLabel = owned ? 'owned' : locked ? 'locked' : `🪙 ${item.price}`;
+      row.innerHTML = `
+        <div class="si-emoji">${item.emoji}</div>
+        <div class="si-info">
+          <div class="si-name">${item.name}</div>
+          <div class="si-desc">${item.desc}</div>
+        </div>`;
+      const btn = document.createElement('button');
+      btn.textContent = btnLabel;
+      btn.disabled = owned || locked || State.money < item.price;
+      btn.addEventListener('click', () => {
+        const err = purchase(item.id);
+        if (err) { this.toast(err); return; }
+        this.onPurchase && this.onPurchase(item);
+        this._renderShop();
+      });
+      row.appendChild(btn);
+      wrap.appendChild(row);
+    }
   },
 
   // ---------- therapist chat ----------

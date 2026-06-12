@@ -341,6 +341,44 @@ export function buildHouse(scene) {
   }
   fence.box(0.16, 1.15, 0.16, -1.6, 0.57, 15);                                  // gate posts
   fence.box(0.16, 1.15, 0.16, 1.6, 0.57, 15);
+
+  // ----- front door (ajar) + frame, chimney — de-blockifying touches -----
+  white.box(0.12, 2.25, 0.3, -0.85, 1.12, FOOT_Z);                              // door jambs
+  white.box(0.12, 2.25, 0.3, 0.85, 1.12, FOOT_Z);
+  white.box(1.82, 0.12, 0.3, 0, 2.31, FOOT_Z);                                  // door header
+  wood.box(0.78, 2.16, 0.06, -0.42, 1.08, FOOT_Z + 0.32, { ry: -1.0 });         // the door, swung open
+  books.box(0.75, 2.8, 0.75, 4.2, 6.7, -2.0);                                   // brick chimney
+  books.box(0.95, 0.18, 0.95, 4.2, 8.05, -2.0);
+
+  // ----- THE CROP EXCHANGE: a stall outside the gate, run by a scarecrow -----
+  const STAND_X = 6.2, STAND_Z = 18.6;
+  wood.box(0.14, 1.05, 0.14, STAND_X - 1.2, 0.52, STAND_Z - 0.5);               // legs
+  wood.box(0.14, 1.05, 0.14, STAND_X + 1.2, 0.52, STAND_Z - 0.5);
+  wood.box(2.8, 0.08, 0.8, STAND_X, 1.06, STAND_Z - 0.5, { collide: true });    // counter
+  wood.box(0.12, 2.3, 0.12, STAND_X - 1.3, 1.15, STAND_Z + 0.55);               // roof posts
+  wood.box(0.12, 2.3, 0.12, STAND_X + 1.3, 1.15, STAND_Z + 0.55);
+  roof.box(3.2, 0.08, 1.9, STAND_X, 2.32, STAND_Z, { rx: 0.18 });               // little shingle roof
+  white.box(0.4, 0.3, 0.3, STAND_X - 0.8, 1.25, STAND_Z - 0.5);                 // goods on the counter
+  books.box(0.3, 0.24, 0.24, STAND_X + 0.1, 1.22, STAND_Z - 0.5);
+  fence.box(0.34, 0.4, 0.3, STAND_X + 0.85, 1.3, STAND_Z - 0.5);
+  // the scarecrow shopkeeper
+  wood.box(0.1, 1.9, 0.1, STAND_X, 0.95, STAND_Z + 0.3);                        // pole
+  wood.box(1.3, 0.09, 0.09, STAND_X, 1.55, STAND_Z + 0.3);                      // arm bar
+  fence.box(0.5, 0.75, 0.3, STAND_X, 1.35, STAND_Z + 0.3);                      // burlap body
+  const strawMat = new THREE.MeshLambertMaterial({ color: 0xc9a85c });
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.22, 9, 9), strawMat);
+  head.position.set(STAND_X, 1.95, STAND_Z + 0.3);
+  group.add(head);
+  const hat = new THREE.Mesh(new THREE.ConeGeometry(0.3, 0.4, 9),
+    new THREE.MeshLambertMaterial({ color: 0x4d4338 }));
+  hat.position.set(STAND_X, 2.22, STAND_Z + 0.3);
+  group.add(hat);
+  const stitchMat = new THREE.MeshBasicMaterial({ color: 0x2a2118 });
+  for (const ex of [-0.08, 0.08]) {
+    const stitch = new THREE.Mesh(new THREE.SphereGeometry(0.03, 5, 5), stitchMat);
+    stitch.position.set(STAND_X + ex, 1.98, STAND_Z + 0.09);
+    group.add(stitch);
+  }
   addCollider(-15.2, 15.2, -15.2, -14.85, 0, 1.0);                              // fence colliders
   addCollider(-15.2, -14.85, -15.2, 15.2, 0, 1.0);
   addCollider(14.85, 15.2, -15.2, 15.2, 0, 1.0);
@@ -368,6 +406,7 @@ export function buildHouse(scene) {
     { id: 'shelf', x: -5.0, y: 0, z: -0.5, r: 1.8, label: '📖  Read a book' },
     { id: 'sofa', x: -3.9, y: 0, z: 1.9, r: 1.6, label: '🛋  Rest a while' },
     { id: 'therapist', x: -4.0, y: 0, z: -1.7, r: 2.0, label: '🕯  Talk to the therapist' },
+    { id: 'shop', x: 6.2, y: 0, z: 17.2, r: 2.2, label: '🌾  Browse The Crop Exchange' },
   ];
 
   // ================= movement helpers =================

@@ -7,6 +7,8 @@ import { Controls } from './controls.js';
 import { World } from './world.js';
 import { buildHouse } from './house.js';
 import { Creatures } from './creatures.js';
+import { Monsters } from './monsters.js';
+import { GUNS } from './shop.js';
 import { Dreams } from './dreams.js';
 import { buildTherapist, RuleBrain } from './therapist.js';
 import { UI, MEALS } from './ui.js';
@@ -26,6 +28,27 @@ renderer.toneMappingExposure = 1.15;
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 400);
 camera.rotation.order = 'YXZ';
+scene.add(camera);   // so the gun viewmodel (a child of the camera) renders
+
+// --- the gun, held at the bottom-right of the view ---
+const gunGroup = new THREE.Group();
+const gunBody = new THREE.Mesh(
+  new THREE.BoxGeometry(0.032, 0.045, 0.24),
+  new THREE.MeshLambertMaterial({ color: 0x2c2e33 })
+);
+const gunGrip = new THREE.Mesh(
+  new THREE.BoxGeometry(0.03, 0.085, 0.04),
+  new THREE.MeshLambertMaterial({ color: 0x4a3b2a })
+);
+gunGrip.position.set(0, -0.06, 0.09);
+const gunTipMat = new THREE.MeshBasicMaterial({ color: 0xffd28a });
+const gunTip = new THREE.Mesh(new THREE.SphereGeometry(0.014, 8, 8), gunTipMat);
+gunTip.position.set(0, 0.01, -0.13);
+gunGroup.add(gunBody, gunGrip, gunTip);
+gunGroup.position.set(0.22, -0.17, -0.46);
+gunGroup.rotation.y = -0.06;
+camera.add(gunGroup);
+let recoil = 0;
 
 // ---------- modules ----------
 UI.init();
@@ -33,6 +56,7 @@ const controls = new Controls(canvas, document.getElementById('joylayer'));
 const world = new World(scene);
 const house = buildHouse(scene);
 const creatures = new Creatures(scene);
+const monsters = new Monsters(scene);
 const dreams = new Dreams();
 const therapist = buildTherapist(scene);
 const brain = new RuleBrain();
@@ -76,11 +100,18 @@ function startGame(fromSave) {
   UI.setWater(State.inventory.almondWater);
   UI.setFood(State.inventory.food);
   UI.setHunger(State.hunger);
+  UI.setMoney(State.money);
   playing = true;
   controls.enabled = true;
   if (!State.flags.welcomed) {
     State.flags.welcomed = true;
     UI.toast('Level 10 — “The Bumper Crop”. The house is yours. The fields are… patient.', 5200);
+    setTimeout(() => {
+      if (!State.flags.gotGun) {
+        State.flags.gotGun = true;
+        UI.toast('🔫 You find a Flare Pistol on the porch. It fires light. Tap (or click) to shoot — things from under the soil hate it.', 6500);
+      }
+    }, 6000);
   }
 }
 
@@ -98,15 +129,96 @@ function interact() {
   else if (id === 'shelf') readBook();
   else if (id === 'sofa') rest();
   else if (id === 'therapist') openTherapist();
+  else if (id === 'shop') openShop();
 }
 controls.onInteract = interact;
 UI.onPrompt = interact;
+// tap / click: act on the nearest prompt if there is one, otherwise shoot
+controls.onPrimary = () => { if (currentHotspot) interact(); else fire(); };
+
+// --- shooting ---
+const tracers = [];
+let fireCooldown = 0;
+let immuneToastAt = -10;
+const _aimDir = new THREE.Vector3();
+const _toTarget = new THREE.Vector3();
+const _candPos = new THREE.Vector3();
+const _muzzle = new THREE.Vector3();
+
+function addCalm(x) { State.sanity = Math.min(State.maxSanity, State.sanity + x); }
+
+function fire() {
+  if (!playing || busy || inDream || !controls.enabled || fireCooldown > 0) return;
+  const gun = GUNS[State.gun] || GUNS.flare;
+  fireCooldown = gun.cooldown;
+  recoil = 1;
+  audio.shoot();
+  camera.getWorldDirection(_aimDir);
+
+  // find what we're aiming at: smallest angle off the crosshair wins
+  let best = null, bestAngle = 0.08; // ~4.5° of forgiveness
+  const consider = (pos, obj, kind) => {
+    _toTarget.copy(pos).sub(camera.position);
+    const dist = _toTarget.length();
+    if (dist > 55) return;
+    _toTarget.normalize();
+    const angle = _aimDir.angleTo(_toTarget);
+    const allowance = bestAngle + Math.atan(0.7 / Math.max(dist, 2)); // bigger up close
+    if (angle < allowance && (!best || angle < best.angle)) best = { obj, kind, angle, dist, pos: pos.clone() };
+  };
+  for (const m of monsters.list()) {
+    _candPos.copy(m.mesh.position);
+    _candPos.y += 0.4;
+    consider(_candPos, m, 'monster');
+  }
+  for (const c of creatures.pool) {
+    if (!c.active || c.state === 'FLEE') continue;
+    _candPos.copy(c.mesh.position);
+    _candPos.y += 1.4;
+    consider(_candPos, c, 'hallucination');
+  }
+
+  // a streak of light from the muzzle
+  gunTip.getWorldPosition(_muzzle);
+  const end = best ? best.pos : _muzzle.clone().addScaledVector(_aimDir, 40);
+  const tGeo = new THREE.BufferGeometry().setFromPoints([_muzzle.clone(), end]);
+  const tracer = new THREE.Line(tGeo, new THREE.LineBasicMaterial({
+    color: gun.color, transparent: true, opacity: 0.9, fog: false }));
+  scene.add(tracer);
+  tracers.push({ line: tracer, t: 0.12 });
+  gunTipMat.color.set(gun.color);
+
+  if (best && best.kind === 'monster') {
+    monsters.hit(best.obj, gun.dmg);
+  } else if (best && best.kind === 'hallucination') {
+    if (State.playTime - immuneToastAt > 6) {
+      immuneToastAt = State.playTime;
+      UI.toast('Your light passes straight through it. (It isn\'t really there. RUN HOME.)');
+    }
+  }
+}
+
+bus.on('monsterKilled', ({ coins }) => {
+  audio.pop();
+  audio.coin();
+  UI.setMoney(State.money);
+  if (State.kills === 1) UI.toast(`🪙 +${coins}! Monsters drop grain coins — spend them at the stall by the gate.`);
+  else UI.toast(`🪙 +${coins}`, 1600);
+});
+
+bus.on('monsterBite', () => {
+  audio.bite();
+  UI.flash();
+  shake = 0.45;
+  State.sanity = Math.max(0, State.sanity - 18);
+  UI.toast('A wormling nips you and recoils. Pop it before it circles back!');
+});
 
 controls.onDrink = () => UI.onDrink && UI.onDrink();
 UI.onDrink = () => {
   if (State.inventory.almondWater <= 0) return;
   State.inventory.almondWater--;
-  State.sanity = Math.min(100, State.sanity + 25);
+  addCalm(25);
   UI.setWater(State.inventory.almondWater);
   audio.chime();
   UI.toast('The almond water is sweet and cold. (+25 calm)');
@@ -117,7 +229,9 @@ function cook() {
   audio.sizzle();
   UI.setPrompt(null);
   setTimeout(() => {
-    gainMeal(Math.random() < 0.5 ? 'shrimp' : 'pasta', ' on the stove');
+    const pool = ['shrimp', 'pasta'];
+    if (State.recipes.includes('stew')) pool.push('stew', 'stew'); // new recipe cooks often
+    gainMeal(pool[(Math.random() * pool.length) | 0], ' on the stove');
     busy = false;
   }, 1600);
 }
@@ -137,7 +251,7 @@ function eatMeal(id) {
   food[id]--;
   const meal = MEALS[id];
   State.hunger = Math.min(100, State.hunger + meal.hunger);
-  State.sanity = Math.min(100, State.sanity + meal.calm);
+  addCalm(meal.calm);
   UI.setFood(food);
   if (meal.drink) audio.chime(); else audio.munch();
   UI.toast(`${meal.emoji} You ${meal.drink ? 'drink' : 'eat'} the ${meal.name}. (+${meal.hunger} food, +${meal.calm} calm)`);
@@ -166,7 +280,8 @@ function oven() {
   } else if (State.playTime - f.ovenStart >= BAKE_SECONDS) {
     delete f.ovenStart;
     audio.ding();
-    gainMeal('bread', ', still warm from the oven');
+    const cookies = State.recipes.includes('cookies') && (f.bakeAlt = !f.bakeAlt);
+    gainMeal(cookies ? 'cookies' : 'bread', ', still warm from the oven');
   } else {
     const left = Math.ceil(BAKE_SECONDS - (State.playTime - f.ovenStart));
     UI.toast(`The oven hums softly. About ${left}s to go.`);
@@ -178,7 +293,7 @@ function rest() {
   UI.setPrompt(null);
   setTimeout(() => {
     State.rests++;
-    State.sanity = Math.min(100, State.sanity + 12);
+    addCalm(12);
     UI.toast('You sink into the sofa for a while. (+12 calm)');
     busy = false;
   }, 1200);
@@ -192,7 +307,7 @@ function readBook() {
   const first = !State.booksRead.includes(book.id);
   if (first) State.booksRead.push(book.id);
   State.reads++;
-  State.sanity = Math.min(100, State.sanity + (first ? 10 : 3));
+  addCalm(first ? 10 : 3);
   UI.onBookClosed = () => { controls.enabled = true; };
 }
 
@@ -203,6 +318,20 @@ function openTherapist() {
   UI.openChat(brain);
   UI.onChatClosed = () => { controls.enabled = true; };
 }
+
+function openShop() {
+  controls.enabled = false;
+  controls.releaseLock();
+  audio.blip();
+  UI.openShop();
+  UI.onShopClosed = () => { controls.enabled = true; };
+}
+UI.onPurchase = (item) => {
+  audio.coin();
+  UI.setMoney(State.money);
+  UI.setFood(State.inventory.food);
+  UI.toast(`${item.emoji} ${item.name} — yours. The scarecrow does not move. You feel thanked anyway.`);
+};
 
 // ---------- sleeping & dreaming ----------
 async function goToSleep() {
@@ -225,7 +354,7 @@ async function wakeUp() {
   await UI.fade(1, 1.1);
   const def = dreams.current;
   State.sleeps++;
-  State.sanity = 100;
+  State.sanity = State.maxSanity;
   State.hunger = Math.max(0, State.hunger - 15);   // dreaming works up an appetite
   State.dreamLog.push({ id: def.id, title: def.title });
   State.flags.lastDream = def.id;
@@ -288,6 +417,8 @@ window.__state = State;
 window.__teleport = (x, z, y = 0) => player.set(x, y, z);
 window.__look = (yaw, pitch = 0) => { controls.yaw = yaw; controls.pitch = pitch; };
 window.__creatures = creatures;
+window.__monsters = monsters;
+window.__fire = fire;
 window.__pos = () => ({ x: +player.x.toFixed(2), y: +player.y.toFixed(2), z: +player.z.toFixed(2) });
 window.__audio = audio;
 
@@ -334,12 +465,32 @@ function tick() {
   const inYard = house.isInYard(player.x, player.z);
   const inside = house.isInside(player.x, player.z);
   world.update(dt, player, inYard);
+
+  // --- gun feel: cooldown, recoil, fading tracers ---
+  fireCooldown -= dt;
+  recoil = Math.max(0, recoil - dt * 6);
+  gunGroup.position.z = -0.42 + recoil * 0.07;
+  gunGroup.rotation.x = recoil * 0.16;
+  gunGroup.position.y = -0.16 + Math.sin(walkPhase) * 0.006;
+  for (let i = tracers.length - 1; i >= 0; i--) {
+    const tr = tracers[i];
+    tr.t -= dt;
+    tr.line.material.opacity = Math.max(0, tr.t / 0.12) * 0.9;
+    if (tr.t <= 0) {
+      scene.remove(tr.line);
+      tr.line.geometry.dispose();
+      tr.line.material.dispose();
+      tracers.splice(i, 1);
+    }
+  }
   // window panes mirror the sky by day and glow warm in the dark — a beacon home
   house.windowMat.color.copy(world.skyColor).lerp(_warmWindow, world.fear * 0.85);
   therapist.update(dt, player);
   if (controls.enabled) {
     creatures.update(dt, player, camera, world.fear, inYard, stillTime);
+    monsters.update(dt, player, inYard);
   }
+  UI.setCrosshair(playing && controls.enabled && !inDream);
 
   // --- hunger: drains slowly; an empty stomach gnaws at your calm ---
   State.hunger = Math.max(0, State.hunger - dt * 0.18);
@@ -359,7 +510,7 @@ function tick() {
   }
   if (State.hunger <= 0) delta -= 1.2;
   else if (State.hunger < 25) delta -= 0.5;
-  State.sanity = THREE.MathUtils.clamp(State.sanity + delta * dt, 0, 100);
+  State.sanity = THREE.MathUtils.clamp(State.sanity + delta * dt, 0, State.maxSanity);
   if (State.sanity <= 0 && !busy) blackout();
 
   // --- nearest hotspot prompt ---
@@ -375,7 +526,7 @@ function tick() {
   UI.setPrompt(currentHotspot ? currentHotspot.label : null);
 
   // --- HUD ---
-  UI.setCalm(State.sanity);
+  UI.setCalm((State.sanity / State.maxSanity) * 100);
   UI.setHunger(State.hunger);
   UI.setVignette(State.sanity < 40 ? ((40 - State.sanity) / 40) * 0.95 : 0);
   let rel = Math.atan2(player.x, player.z) - controls.yaw;

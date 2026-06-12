@@ -254,10 +254,11 @@ export class World {
     const canopyGeo = new THREE.IcosahedronGeometry(1.9, 1);   // soft round crown
     canopyGeo.scale(1, 0.85, 1);
     this.canopies = mk(canopyGeo, 0x4d5c42, TREE_N);
+    this.canopies2 = mk(new THREE.IcosahedronGeometry(1.15, 1), 0x576648, TREE_N); // a second blob breaks the lollipop look
     this.bushes = mk(new THREE.IcosahedronGeometry(0.95, 1), 0x46523c, BUSH_N);
     this.posts = mk(new THREE.BoxGeometry(0.14, 1.2, 0.14), 0x5d5243, POST_N);
     this.rails = mk(new THREE.BoxGeometry(0.05, 0.06, 4.05), 0x6b5f4c, RAIL_N);
-    this._instanced = [this.wheat, this.grass, this.trunks, this.canopies, this.bushes, this.posts, this.rails];
+    this._instanced = [this.wheat, this.grass, this.trunks, this.canopies, this.canopies2, this.bushes, this.posts, this.rails];
   }
 
   _buildPowerLine() {
@@ -396,6 +397,8 @@ export class World {
       this.trunks.setMatrixAt(idx, _mat.compose(_pos, _quat, _scl));
       _pos.set(x, 2.6 * s + 1.6 * s, z);
       this.canopies.setMatrixAt(idx, _mat.compose(_pos, _quat, _scl));
+      _pos.set(x + (rnd() - 0.5) * 2.2 * s, 2.6 * s + 2.2 * s, z + (rnd() - 0.5) * 1.6 * s);
+      this.canopies2.setMatrixAt(idx, _mat.compose(_pos, _quat, _scl));
     }
 
     // --- bushes scattered about ---

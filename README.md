@@ -20,6 +20,13 @@ as long as you stay close to home.
   them. Don't stand still. Walk home — daylight un-happens them.
 - **Sleep to dream.** Dreams are adventures: floating wheat islands, neon
   voids, a stalk as tall as weather. You always wake up with something.
+- **You have a Flare Pistol.** It fires light. Past the **75m mark**, wormlings
+  surface from the soil — pop them for grain coins. Past **150m**, the tall
+  things appear… and light passes straight through those. They aren't really
+  there. Run home.
+- **The Crop Exchange** — a scarecrow-run stall by the front gate. Spend coins
+  on calm bars, new recipes (golden stew, wheat cookies), bigger calm bars,
+  and better guns (Lantern Rifle, Dawn Cannon).
 - **Almond water** is hidden in the far fields. Drink it when the edges of
   your eyes go dark.
 - You cannot die. If the dark catches up with you, the fields carry you home.
