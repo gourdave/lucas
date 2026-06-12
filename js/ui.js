@@ -104,6 +104,9 @@ export const MEALS = {
   calmbar: { name: 'calm bar', emoji: '🍫', hunger: 10, calm: 40 },
   stew: { name: 'golden stew', emoji: '🥘', hunger: 60, calm: 20 },
   cookies: { name: 'wheat cookies', emoji: '🍪', hunger: 20, calm: 25 },
+  burger: { name: 'wheaty burger', emoji: '🍔', hunger: 45, calm: 10 },
+  fries: { name: 'golden fries', emoji: '🍟', hunger: 20, calm: 15 },
+  shake: { name: 'almond shake', emoji: '🥤', hunger: 10, calm: 25, drink: true },
 };
 
 export const UI = {
