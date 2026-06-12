@@ -31,6 +31,7 @@ export const State = {
   digSite: null,        // { x, z, taps } — where the radio's numbers point
   digsDone: 0,
   listenersSurvived: 0, // times you froze until The Listener gave up
+  mysteries: {},        // string-wall threads: { gnome: { found, solved, shots } }
   lbName: '',           // auto-generated leaderboard name
   bossKills: 0,
   distance: 0,          // live distance from the house (meters)
@@ -104,6 +105,7 @@ export function load() {
     State.digSite ??= null;
     State.digsDone ??= 0;
     State.listenersSurvived ??= 0;
+    State.mysteries ??= {};
     State.lbName ??= '';
     State.bossKills ??= 0;
     State.flags ||= {};

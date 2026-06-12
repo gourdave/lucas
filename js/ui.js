@@ -10,6 +10,7 @@ import { BOARDS, fetchBoard, ensureLbName, rerollLbName } from './lb.js';
 import { CROPS } from './garden.js';
 import { PETS, RARITY } from './pets.js';
 import { ReelGame, FISH, RARITY_COLOR } from './fishing.js';
+import { MYSTERIES, currentHint, looseThreads } from './mysteries.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -92,6 +93,32 @@ The whole level is signed, you know. Look at the title of the sky some time.
 
 — for Kamsamnor, who made the fields."`,
   },
+  {
+    id: 'midnight',
+    title: 'Midnight Snacks of the Fields (margin notes)',
+    body: `A recipe pamphlet. Someone has scribbled all over it.
+
+The printed part lists "field-safe foods": almond water, hard bread, anything that doesn't smell too alive.
+
+The margin notes are more interesting:
+
+"the shopkeeper has a sweet tooth. I'm serious. bake WHEAT COOKIES and walk up to the stall with one in your pocket. it will not say thank you. it will say something better."
+
+"do NOT give cookies to the tall ones. they have no mouths and it embarrasses everyone."`,
+  },
+  {
+    id: 'patience',
+    title: 'On Patience',
+    body: `A thin book, mostly blank pages. The few printed lines are these:
+
+"The fields keep track of everything that moves. Walkers, runners, things on wheels. All counted, all watched.
+
+Stand so still the fields forget you. Count to sixty, out past the 50 meter mark, without one step.
+
+The soil pays tribute to statues."
+
+The rest of the pages are blank. Possibly they are waiting too.`,
+  },
 ];
 
 // the meals you can make yourself and carry into the fields
@@ -160,6 +187,7 @@ export const UI = {
     $('photobtn').addEventListener('click', () => this.onPhoto && this.onPhoto());
     $('journalclose').addEventListener('click', () => { $('journalpanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
     $('lbclose').addEventListener('click', () => { $('lbpanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
+    $('wallclose').addEventListener('click', () => { $('wallpanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
     $('chatsend').addEventListener('click', () => this._send());
     this.chatinput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this._send();
@@ -372,6 +400,38 @@ export const UI = {
       body.appendChild(grid);
     }
     $('journalpanel').classList.remove('hidden');
+  },
+
+  // ---------- the string wall ----------
+  openWall() {
+    const body = $('wallbody');
+    body.innerHTML = '';
+    let pinned = 0;
+    for (const [id, def] of Object.entries(MYSTERIES)) {
+      if (!State.mysteries[id]) continue;
+      pinned++;
+      const solved = State.mysteries[id].solved;
+      const row = document.createElement('div');
+      row.className = 'rowitem';
+      row.innerHTML = `<div style="font-size:22px">${solved ? '✅' : def.emoji}</div>
+        <div class="ri-main">
+          <div class="ri-title">${solved ? '' : '❓ '}${def.title}</div>
+          <div class="ri-sub">${currentHint(id)}</div>
+        </div>`;
+      body.appendChild(row);
+    }
+    if (!pinned) {
+      body.innerHTML = '<div class="ri-sub" style="text-align:center">The board is empty. Threads pin themselves when you notice something odd. Read. Wander. Look twice.</div>';
+    }
+    const loose = looseThreads();
+    if (loose) {
+      const note = document.createElement('div');
+      note.className = 'ri-sub';
+      note.style.textAlign = 'center';
+      note.textContent = `…and ${loose} loose thread${loose === 1 ? '' : 's'} still out there, unnoticed.`;
+      body.appendChild(note);
+    }
+    $('wallpanel').classList.remove('hidden');
   },
 
   // ---------- the leaderboard ----------

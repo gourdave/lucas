@@ -212,7 +212,8 @@ export function openChest() {
   if (!chestAvailable()) return null;
   State.lastChest = todayStr();
   const rnd = dayRng('chest');
-  const coins = 20 + Math.floor(rnd() * 21);
+  let coins = 20 + Math.floor(rnd() * 21);
+  if (State.flags.gnomeFriend) coins += 8;   // the gnome chips in. don't ask how
   State.money += coins;
   const extra = rnd();
   let bonus = null;

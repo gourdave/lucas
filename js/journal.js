@@ -41,6 +41,9 @@ export const BADGES = {
   digger: { name: 'X Marks the Spot', emoji: '⛏', desc: 'Dig up a number-station cache' },
   statue: { name: 'Living Statue', emoji: '🗿', desc: 'Out-freeze The Listener 3 times' },
   fries: { name: 'Would You Like Fries', emoji: '🍟', desc: 'Order at WcDonald\'s' },
+  gnomad: { name: 'Gnome Paparazzi', emoji: '🧙', desc: 'Photograph the wandering gnome in 5 places' },
+  photoghost: { name: 'It Was In The Photo', emoji: '📷', desc: 'Capture what the upstairs window hides' },
+  threads: { name: 'Every Thread Pulled', emoji: '🧵', desc: 'Solve every string-wall mystery' },
 };
 
 function mark(list, id) {
@@ -151,6 +154,13 @@ export function initJournal() {
   bus.on('listenerLost', () => { if (State.listenersSurvived >= 3) awardBadge('statue'); });
   bus.on('wcdSeen', () => mark(State.journal.creatures, 'regulars'));
   bus.on('ordered', ({ meal }) => { mark(State.journal.mealsMade, meal); awardBadge('fries'); });
+  bus.on('mysterySolved', ({ id }) => {
+    if (id === 'gnome') awardBadge('gnomad');
+    if (id === 'window') awardBadge('photoghost');
+    if (['gnome', 'window', 'cookies', 'stillness'].every((m) => State.mysteries[m] && State.mysteries[m].solved)) {
+      awardBadge('threads');
+    }
+  });
 }
 
 export function checkDepthBadges(depth) {
