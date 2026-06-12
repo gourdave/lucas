@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a0d12">
+<title>The Bumper Crop — by kamsamnor</title>
+<link rel="manifest" href="./manifest.json">
+<link rel="icon" href="./icon.svg" type="image/svg+xml">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; overflow: hidden; background: #000; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    color: #d6d2c4; user-select: none; -webkit-user-select: none;
+  }
+  #c { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+
+  .hidden { display: none !important; }
+
+  /* ---------- virtual joystick ---------- */
+  #joylayer { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+  .joy-base {
+    position: fixed; width: 110px; height: 110px; border-radius: 50%;
+    border: 2px solid rgba(255,255,255,.25); background: rgba(255,255,255,.06);
+  }
+  .joy-nub {
+    position: absolute; left: 31px; top: 31px; width: 48px; height: 48px; border-radius: 50%;
+    background: rgba(255,255,255,.3);
+  }
+
+  /* ---------- HUD ---------- */
+  #hud {
+    position: fixed; top: calc(10px + env(safe-area-inset-top)); left: calc(12px + env(safe-area-inset-left));
+    right: calc(12px + env(safe-area-inset-right)); z-index: 10; pointer-events: none;
+    display: flex; justify-content: space-between; align-items: flex-start; gap: 10px;
+  }
+  #calmwrap { font-size: 10px; letter-spacing: .25em; color: #b8b2a0; }
+  #calmbar {
+    width: 150px; height: 9px; margin-top: 3px; border-radius: 5px;
+    background: rgba(255,255,255,.12); overflow: hidden; border: 1px solid rgba(255,255,255,.15);
+  }
+  #calmfill { height: 100%; width: 100%; background: #9fc28a; border-radius: 5px; transition: background .5s; }
+  #calmfill.mid { background: #c2b35f; }
+  #calmfill.low { background: #c25f5f; }
+  #homeinfo {
+    font-size: 13px; color: #cfc7ae; background: rgba(10,12,16,.45); border-radius: 14px;
+    padding: 4px 12px; display: flex; gap: 7px; align-items: center;
+  }
+  #homearrow { display: inline-block; transition: transform .15s linear; font-size: 12px; }
+  #waterbtn {
+    pointer-events: auto; font-size: 12px; color: #dfe8e2; background: rgba(28,38,40,.75);
+    border: 1px solid rgba(190,220,210,.4); border-radius: 14px; padding: 6px 12px; cursor: pointer;
+  }
+
+  /* ---------- interact prompt ---------- */
+  #prompt {
+    position: fixed; bottom: calc(16% + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
+    z-index: 10; font-size: 15px; color: #e8dcb2; background: rgba(14,14,10,.78);
+    border: 1px solid rgba(216,178,79,.55); border-radius: 22px; padding: 10px 22px; cursor: pointer;
+  }
+
+  /* ---------- overlays ---------- */
+  #vignette {
+    position: fixed; inset: 0; z-index: 8; pointer-events: none; opacity: 0;
+    background: radial-gradient(ellipse at center, transparent 38%, rgba(8,2,2,.92) 100%);
+  }
+  #flash { position: fixed; inset: 0; z-index: 20; pointer-events: none; background: #000; opacity: 0; }
+  #fade { position: fixed; inset: 0; z-index: 30; pointer-events: none; background: #000; opacity: 0; }
+  #toast {
+    position: fixed; top: 14%; left: 50%; transform: translateX(-50%); z-index: 25; max-width: 82%;
+    font-size: 14px; text-align: center; color: #e7e0c8; background: rgba(12,13,16,.85);
+    border: 1px solid rgba(216,178,79,.35); border-radius: 10px; padding: 10px 18px;
+  }
+  #dreamtitle {
+    position: fixed; top: 42%; width: 100%; text-align: center; z-index: 32; pointer-events: none;
+    font-style: italic; font-size: 22px; letter-spacing: .12em; color: #e8dff0;
+    text-shadow: 0 0 18px rgba(190,150,255,.6);
+  }
+
+  /* ---------- title screen ---------- */
+  #title {
+    position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; text-align: center; padding: 20px;
+    background: radial-gradient(ellipse at 50% 30%, #232a24 0%, #14171c 55%, #0a0c10 100%);
+  }
+  #title .t-sub { font-size: 12px; letter-spacing: .4em; color: #8d9488; text-transform: uppercase; }
+  #title h1 {
+    font-size: clamp(28px, 7vw, 56px); letter-spacing: .3em; font-weight: 600; color: #d8b24f;
+    text-shadow: 0 0 26px rgba(216,178,79,.35); margin: 4px 0 2px 0;
+  }
+  #title .t-credit { font-size: 14px; color: #b9b2a0; letter-spacing: .08em; margin-bottom: 14px; }
+  #title .t-credit b { color: #e6d9a8; }
+  #title button {
+    font-size: 17px; letter-spacing: .15em; color: #0f110d; background: #d8b24f;
+    border: none; border-radius: 8px; padding: 13px 44px; cursor: pointer; font-weight: 600;
+  }
+  #title button.ghost { background: transparent; color: #d8b24f; border: 1px solid #d8b24f; }
+  #title .t-help { font-size: 12px; color: #79817a; line-height: 1.8; margin-top: 18px; max-width: 480px; }
+
+  /* ---------- book overlay ---------- */
+  #book {
+    position: fixed; inset: 0; z-index: 35; display: flex; align-items: center; justify-content: center;
+    background: rgba(4,5,7,.72); padding: 18px;
+  }
+  #bookpage {
+    max-width: 460px; max-height: 80vh; overflow-y: auto; background: #ddd3b8; color: #2c281e;
+    border-radius: 4px; padding: 26px 28px; box-shadow: 0 12px 50px rgba(0,0,0,.7);
+    font-family: Georgia, "Times New Roman", serif;
+  }
+  #bookpage h2 { font-size: 18px; margin-bottom: 14px; letter-spacing: .04em; }
+  #bookpage p { font-size: 15px; line-height: 1.65; white-space: pre-line; }
+  #bookclose {
+    margin-top: 20px; font-size: 13px; background: #2c281e; color: #ddd3b8; border: none;
+    border-radius: 6px; padding: 9px 16px; cursor: pointer;
+  }
+
+  /* ---------- therapist chat ---------- */
+  #chat {
+    position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; z-index: 35;
+    width: min(520px, 100%); max-height: 62vh; display: flex; flex-direction: column;
+    background: rgba(13,13,17,.94); border: 1px solid rgba(255,176,102,.25);
+    border-bottom: none; border-radius: 14px 14px 0 0; overflow: hidden;
+  }
+  #chathead {
+    display: flex; justify-content: space-between; align-items: center; padding: 10px 14px;
+    font-size: 12px; letter-spacing: .22em; color: #e0a865; background: rgba(40,28,16,.5);
+  }
+  #chatclose { background: none; border: none; color: #c9b89a; font-size: 22px; cursor: pointer; line-height: 1; }
+  #chatlog { flex: 1; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; min-height: 120px; }
+  .msg { max-width: 86%; padding: 8px 13px; border-radius: 12px; font-size: 14px; line-height: 1.5; }
+  .msg.doc { align-self: flex-start; background: #221c16; color: #e8dcc2; border: 1px solid rgba(255,176,102,.18); }
+  .msg.user { align-self: flex-end; background: #2a3a2e; color: #dfe8da; }
+  #chatrow { display: flex; gap: 8px; padding: 10px 12px calc(10px + env(safe-area-inset-bottom)) 12px; background: rgba(0,0,0,.3); }
+  #chatinput {
+    flex: 1; font-size: 15px; padding: 10px 14px; border-radius: 20px; outline: none;
+    border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.07); color: #eee;
+  }
+  #chatsend {
+    font-size: 16px; width: 44px; border-radius: 50%; border: none; cursor: pointer;
+    background: #d8b24f; color: #14130c;
+  }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="joylayer"></div>
+
+<div id="hud" class="hidden">
+  <div id="calmwrap">CALM<div id="calmbar"><div id="calmfill"></div></div></div>
+  <div id="homeinfo" class="hidden"><span id="homearrow">▲</span><span id="homedist">0m</span></div>
+  <button id="waterbtn" class="hidden">🧴 ×<span id="watercount">0</span> — drink</button>
+</div>
+
+<button id="prompt" class="hidden"></button>
+<div id="vignette"></div>
+<div id="flash"></div>
+<div id="toast" class="hidden"></div>
+<div id="dreamtitle" class="hidden"></div>
+
+<div id="title">
+  <div class="t-sub">a backrooms · level 10 story</div>
+  <h1>THE BUMPER CROP</h1>
+  <div class="t-credit">created by <b>kamsamnor</b></div>
+  <button id="btn-continue" class="hidden">CONTINUE</button>
+  <button id="btn-new" class="ghost">NEW GAME</button>
+  <div class="t-help">
+    move: left thumb / WASD &nbsp;·&nbsp; look: drag / mouse &nbsp;·&nbsp; act: tap / E or click &nbsp;·&nbsp; drink: Q<br>
+    The house is safe. The fields are not.<br>
+    Walk far enough and the day will stop following you.
+  </div>
+</div>
+
+<div id="book" class="hidden">
+  <div id="bookpage">
+    <h2 id="booktitle"></h2>
+    <p id="bookbody"></p>
+    <button id="bookclose">put the book back</button>
+  </div>
+</div>
+
+<div id="chat" class="hidden">
+  <div id="chathead"><span>DR. UMBRA — THERAPIST</span><button id="chatclose">×</button></div>
+  <div id="chatlog"></div>
+  <div id="chatrow">
+    <input id="chatinput" placeholder="say something…" autocomplete="off" maxlength="200">
+    <button id="chatsend">➤</button>
+  </div>
+</div>
+
+<div id="fade"></div>
+
+<script type="importmap">
+{ "imports": { "three": "./js/vendor/three.module.min.js" } }
+</script>
+<script type="module" src="./js/main.js"></script>
+<script>
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+    addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "The Bumper Crop — a Backrooms Level 10 story",
+  "short_name": "Bumper Crop",
+  "description": "Endless wheat. A safe house. The further you walk, the darker it follows. Created by kamsamnor.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0a0d12",
+  "theme_color": "#0a0d12",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}
