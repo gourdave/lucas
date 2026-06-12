@@ -7,7 +7,10 @@
   Harvest Night, bike/cart, stardust/nightmares, online leaderboard
 
 ## Next ideas (from Lucas, as they come)
-- (collect here)
+- **Interactive dreams (Phase H)** — turn the dream vignettes into playable
+  minigames so they feel like real adventures: hop across the floating plots,
+  catch falling stars in the neon void, climb the giant stalk, outrun the
+  ring of grins in the nightmare. Rewards scale with performance.
 
 ## Parked — bigger explorations (David, 2026-06-12)
 - **Photorealism push** — next-level graphics pass beyond the current stylized look

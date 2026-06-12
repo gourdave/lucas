@@ -164,9 +164,9 @@ export function buildHouse(scene) {
 
   // ================= floors / ceiling / roof =================
   floors.box(12.4, 0.2, 9.4, 0, -0.06, 0);                                      // ground slab (top sits above the yard grass)
-  floors.box(12, 0.22, 7.9, 0, FLOOR2 - 0.11, 0.55);                            // floor 2 (south of stairwell)
-  floors.box(4, 0.22, 1.15, -4, FLOOR2 - 0.11, -3.925);                         // floor 2 west of stairwell
-  floors.box(3.7, 0.22, 1.15, 4.15, FLOOR2 - 0.11, -3.925);                     // floor 2 east of stairwell
+  floors.box(12, 0.22, 7.9, 0, FLOOR2 - 0.122, 0.55);                            // floor 2 (south of stairwell)
+  floors.box(4, 0.22, 1.15, -4, FLOOR2 - 0.122, -3.925);                         // floor 2 west of stairwell
+  floors.box(3.7, 0.22, 1.15, 4.15, FLOOR2 - 0.122, -3.925);                     // floor 2 east of stairwell
   roof.box(12.4, 0.2, 9.4, 0, 5.7, 0);                                          // ceiling
   roof.box(13, 0.2, 5.6, 0, 6.7, -2.35, { rx: 0.42 });                          // roof slopes
   roof.box(13, 0.2, 5.6, 0, 6.7, 2.35, { rx: -0.42 });
