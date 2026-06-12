@@ -227,6 +227,7 @@ window.__teleport = (x, z, y = 0) => player.set(x, y, z);
 window.__look = (yaw, pitch = 0) => { controls.yaw = yaw; controls.pitch = pitch; };
 window.__creatures = creatures;
 window.__pos = () => ({ x: +player.x.toFixed(2), y: +player.y.toFixed(2), z: +player.z.toFixed(2) });
+window.__audio = audio;
 
 function tick() {
   const dt = Math.min(clock.getDelta(), 0.05);
