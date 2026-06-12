@@ -10,7 +10,7 @@ import { Creatures } from './creatures.js';
 import { Monsters } from './monsters.js';
 import { GUNS } from './shop.js';
 import { Dreams } from './dreams.js';
-import { buildTherapist, RuleBrain, ClaudeBrain, getClaudeKey } from './therapist.js';
+import { buildTherapist, RuleBrain, ClaudeBrain, getClaudeKey, PROXY_URL } from './therapist.js';
 import { UI, MEALS } from './ui.js';
 import { GameAudio } from './audio.js';
 
@@ -315,9 +315,14 @@ function openTherapist() {
   controls.enabled = false;
   controls.releaseLock();
   audio.blip();
-  // real Claude plays Dr. Umbra when a key is saved; RuleBrain otherwise (and as fallback)
+  // real Claude plays Dr. Umbra: a device key takes precedence (testing),
+  // then the global keyless proxy, then the built-in RuleBrain
   const key = getClaudeKey();
-  UI.openChat(key ? new ClaudeBrain(key, brain) : brain);
+  const proxy = window.__proxyOverride || PROXY_URL;
+  let activeBrain = brain;
+  if (key) activeBrain = new ClaudeBrain(brain, { key });
+  else if (proxy) activeBrain = new ClaudeBrain(brain, { proxy });
+  UI.openChat(activeBrain);
   UI.onChatClosed = () => { controls.enabled = true; };
 }
 
