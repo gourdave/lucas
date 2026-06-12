@@ -189,6 +189,13 @@
     font-style: italic; font-size: 22px; letter-spacing: .12em; color: #e8dff0;
     text-shadow: 0 0 18px rgba(190,150,255,.6);
   }
+  #dreamhud {
+    position: fixed; top: calc(12px + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%);
+    z-index: 11; pointer-events: none; white-space: nowrap;
+    font-size: 14px; color: #e8dff0; background: rgba(18,12,28,.7);
+    border: 1px solid rgba(190,150,255,.45); border-radius: 12px; padding: 7px 16px;
+    text-shadow: 0 0 10px rgba(190,150,255,.5);
+  }
 
   /* ---------- title screen ---------- */
   #title {
@@ -349,6 +356,7 @@
 <div id="flash"></div>
 <div id="toast" class="hidden"></div>
 <div id="dreamtitle" class="hidden"></div>
+<div id="dreamhud" class="hidden"></div>
 
 <div id="title">
   <div class="t-sub">a backrooms · level 10 story</div>

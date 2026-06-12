@@ -247,8 +247,12 @@ function openDailyChest() {
 }
 controls.onInteract = interact;
 UI.onPrompt = interact;
-// tap / click: act on the nearest prompt if there is one, otherwise shoot
-controls.onPrimary = () => { if (currentHotspot) interact(); else fire(); };
+// tap / click: in a dream it belongs to the minigame; awake, act on the
+// nearest prompt if there is one, otherwise shoot
+controls.onPrimary = () => {
+  if (inDream) { dreams.tap(); return; }
+  if (currentHotspot) interact(); else fire();
+};
 
 // --- shooting ---
 const tracers = [];
@@ -642,7 +646,11 @@ async function beginSleep(forced) {
   inDream = true;
   audio.startDream();
   UI.showDreamTitle(def.title);
+  controls.yaw = 0;        // every dream starts facing its action
+  controls.pitch = 0;
   await UI.fade(0, 1.6);
+  controls.enabled = true; // the dream is a minigame — hands back on the wheel
+  if (def.goal) UI.toast(def.goal, 6500);
   busy = false;
 }
 
@@ -666,20 +674,25 @@ function cycleRadio() {
 async function wakeUp() {
   busy = true;
   inDream = false;
+  controls.enabled = false;
+  UI.setDreamHud(null);
   audio.stopDream();
   await UI.fade(1, 1.1);
   const def = dreams.current;
+  const result = dreams.lastResult || { score: 1, max: 1, success: true, text: '' };
   State.sleeps++;
   State.sanity = State.maxSanity;
   State.hunger = Math.max(0, State.hunger - 15);   // dreaming works up an appetite
   State.dreamLog.push({ id: def.id, title: def.title });
   State.flags.lastDream = def.id;
   bus.emit('dreamed', {});
-  addXp(15);
+  addXp(result.success ? 25 : 15);
+  // stardust scales with how well the dream went: 40% just for dreaming,
+  // the rest earned in the minigame (a perfect run roughly doubles it)
   const baseDust = def.id === 'nightmare' ? 25 + Math.random() * 10 : 5 + Math.random() * 6;
-  const dust = Math.round(baseDust * (State.dreamPerks.includes('star') ? 2 : 1));
+  const skill = 0.4 + 0.6 * (result.max ? Math.min(1, result.score / result.max) : 1);
+  const dust = Math.max(1, Math.round(baseDust * skill * (State.dreamPerks.includes('star') ? 2 : 1)));
   State.stardust += dust;
-  UI.toast(`✨ +${dust} stardust (you have ${State.stardust}) — spend it at the stall!`, 4000);
   if (def.reward.type === 'water') {
     State.inventory.almondWater++;
     State.totalAlmondFound++;
@@ -690,7 +703,10 @@ async function wakeUp() {
   placeAtBed();
   save();
   await UI.fade(0, 1.3);
-  UI.toast(def.reward.text, 5200);
+  // one toast at a time: how the dream went, then the stardust, then the gift
+  UI.toast(result.text || 'You wake feeling like you were somewhere important.', 4600);
+  setTimeout(() => UI.toast(`✨ +${dust} stardust (you have ${State.stardust}) — spend it at the stall!`, 4600), 4800);
+  setTimeout(() => UI.toast(def.reward.text, 5200), 9600);
   controls.enabled = true;
   busy = false;
 }
@@ -764,7 +780,9 @@ function tick() {
   State.playTime += dt;
 
   if (inDream) {
-    const alive = dreams.update(dt);
+    controls.update();   // dreams are playable now — feed them your moves
+    const alive = dreams.update(dt, controls, () => audio.chime());
+    UI.setDreamHud(dreams.hudText());
     renderer.render(dreams.scene, dreams.camera);
     if (!alive && !busy) wakeUp();
     return;
