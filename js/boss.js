@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { State, bus, todayStr } from './state.js';
+import { glowSprite } from './gfx.js';
 
 export const BARN_POS = { x: 0, z: -340 };  // follow the power lines north!
 const BOSS_HP = 30;
@@ -89,6 +90,9 @@ export class Boss {
     const lightHead = new THREE.PointLight(0xff8830, 10, 12, 2);
     lightHead.position.y = 4.1;
     g.add(lightHead);
+    const halo = glowSprite(0xff8830, 3.6, 0.5);
+    halo.position.y = 4.05;
+    g.add(halo);
     g.position.set(BARN_POS.x, 0, BARN_POS.z + 8);
     g.visible = false;
     this.scene.add(g);

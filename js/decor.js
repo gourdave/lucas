@@ -4,6 +4,7 @@
 
 import * as THREE from 'three';
 import { State } from './state.js';
+import { glowSprite } from './gfx.js';
 
 // each item has one fixed home — buy it, and it appears there
 export const DECOR = {
@@ -80,6 +81,9 @@ export const DECOR = {
       const glow = new THREE.PointLight(0xffd9a0, 8, 9, 2);
       glow.position.set(0, 2.6, 5.2);
       g.add(glow);
+      const halo = glowSprite(0xffd9a0, 4.5, 0.4);
+      halo.position.set(0, 2.65, 5.0);
+      g.add(halo);
     },
   },
   trophy: {

@@ -40,6 +40,9 @@ renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5));
 renderer.setSize(innerWidth, innerHeight);
 renderer.toneMapping = THREE.ACESFilmicToneMapping;   // filmic color = instant realism
 renderer.toneMappingExposure = 1.15;
+// sharpen every texture at glancing angles (the ground most of all) — set
+// BEFORE any module paints its canvas textures so they all inherit it
+THREE.Texture.DEFAULT_ANISOTROPY = Math.min(8, renderer.capabilities.getMaxAnisotropy());
 
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 400);
@@ -998,11 +1001,31 @@ window.__gnome = gnome;
 window.__figure = windowFigure;
 window.__forceStill = (s) => { stillTime = s; };
 
+// auto-quality: if a phone can't hold ~20fps for a while, quietly shed the
+// mood layers (clouds, ground fog) and drop the pixel ratio. game unchanged.
+let slowFrames = 0;
+let gfxDropped = false;
+function dropGfx() {
+  if (gfxDropped) return;
+  gfxDropped = true;
+  renderer.setPixelRatio(1);
+  world.setLowQuality();
+}
+function watchPerformance(rawDt) {
+  if (gfxDropped || window.__noAutoQuality) return;
+  if (rawDt > 0.055 && rawDt < 1) slowFrames++;
+  else if (rawDt <= 0.04) slowFrames = Math.max(0, slowFrames - 2);
+  if (slowFrames > 240) dropGfx();
+}
+window.__dropGfx = dropGfx;
+
 let __frameCount = 0;
 function tick() {
   window.__frames = ++__frameCount;
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const rawDt = clock.getDelta();
+  const dt = Math.min(rawDt, 0.05);
   if (!playing) { renderer.render(scene, camera); return; }
+  watchPerformance(rawDt);
   State.playTime += dt;
 
   if (inDream) {
@@ -1050,6 +1073,8 @@ function tick() {
   const inYard = house.isInYard(player.x, player.z);
   const inside = house.isInside(player.x, player.z);
   world.update(dt, player, inYard);
+  // the deep field weighs on the camera too: exposure sinks with the light
+  renderer.toneMappingExposure = 1.15 - world.fear * 0.22;
 
   // --- gun feel: cooldown, recoil, fading tracers ---
   fireCooldown -= dt;
