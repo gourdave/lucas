@@ -10,7 +10,7 @@ import { Creatures } from './creatures.js';
 import { Monsters } from './monsters.js';
 import { GUNS } from './shop.js';
 import { Dreams } from './dreams.js';
-import { buildTherapist, RuleBrain } from './therapist.js';
+import { buildTherapist, RuleBrain, ClaudeBrain, getClaudeKey } from './therapist.js';
 import { UI, MEALS } from './ui.js';
 import { GameAudio } from './audio.js';
 
@@ -315,7 +315,9 @@ function openTherapist() {
   controls.enabled = false;
   controls.releaseLock();
   audio.blip();
-  UI.openChat(brain);
+  // real Claude plays Dr. Umbra when a key is saved; RuleBrain otherwise (and as fallback)
+  const key = getClaudeKey();
+  UI.openChat(key ? new ClaudeBrain(key, brain) : brain);
   UI.onChatClosed = () => { controls.enabled = true; };
 }
 

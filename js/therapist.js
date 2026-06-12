@@ -242,6 +242,108 @@ const REFLECT = [
   'Interesting. And how long have you felt that way, {name}?',
 ];
 
+// ---------- the REAL AI: Claude (Haiku) powering Dr. Umbra ----------
+// Used when an API key has been saved on this device (title screen → "ai setup").
+// Any failure — no network, bad key, rate limit — silently falls back to RuleBrain.
+const CLAUDE_MODEL = 'claude-haiku-4-5';
+const KEY_STORAGE = 'bumpercrop.claudekey';
+
+export function getClaudeKey() {
+  try { return localStorage.getItem(KEY_STORAGE) || ''; } catch { return ''; }
+}
+export function setClaudeKey(key) {
+  try {
+    if (key) localStorage.setItem(KEY_STORAGE, key);
+    else localStorage.removeItem(KEY_STORAGE);
+  } catch { /* ignore */ }
+}
+
+function umbraSystemPrompt() {
+  return `You are Dr. Umbra, the therapist NPC in "The Bumper Crop" — a cozy-spooky game set in Backrooms Level 10, designed by a kid who goes by Kamsamnor. You are a gentle shadow person (a dark silhouette with faint amber eyes) seated in an armchair beside a warm lamp, inside the safe house.
+
+You are chatting with the player, who is a kid. Hard rules:
+- Stay in character, always. Voice: warm, calm, a little mysterious, dryly funny. Never mean. Never truly frightening.
+- Keep replies SHORT — 1 to 3 sentences. No lists, no markdown.
+- Strictly kid-appropriate. No gore, no real death talk, no romance, no real-world dark topics. If asked something inappropriate or way off-topic, gently steer back to the game world with humor.
+- You may occasionally address the player as Kamsamnor — the whole level is signed with that name.
+- If the player seems genuinely sad or scared about real life (not the game), be kind and gently suggest talking to a trusted grown-up — while staying in character.
+
+What you know about this world:
+- Level 10 is an endless wheat field under an overcast sky. The house is safe; the fields are not.
+- The further you walk, the darker it gets. Past the 75m mark, wormlings surface from the soil — REAL monsters; popping them with the light-pistol pays grain coins. Past 150m, tall dark hallucinations appear — light passes through them; the only cure is walking home.
+- The kitchen makes food you carry: nuggets (microwave), shrimp/pasta (stove), bread (oven), apple juice (fridge). Eating keeps the FOOD bar up; low food gnaws at calm.
+- Almond water is found in the far fields and restores calm. The Crop Exchange (a scarecrow stall by the gate) sells calm bars, recipes, calm upgrades, and better guns.
+- Sleeping in the bed upstairs triggers dream adventures. You claim to watch the player's dreams from your chair. You speak for the lamp sometimes. Nobody built the house; it was always here, and it likes being lived in.
+
+Current player state (weave details in naturally when relevant, don't recite):
+${JSON.stringify({
+    calm: Math.round(State.sanity), maxCalm: State.maxSanity,
+    food: Math.round(State.hunger),
+    coins: State.money, monstersPopped: State.kills,
+    furthestWalk_m: Math.round(State.maxDistance),
+    blackouts: State.blackouts,
+    lastDream: State.dreamLog.length ? State.dreamLog[State.dreamLog.length - 1].title : null,
+    dreamsHad: State.dreamLog.length,
+    almondWater: State.inventory.almondWater,
+    pocketFood: State.inventory.food,
+    gun: State.gun,
+    booksRead: State.booksRead.length,
+  })}`;
+}
+
+export class ClaudeBrain {
+  constructor(apiKey, fallback) {
+    this.apiKey = apiKey;
+    this.fallback = fallback;
+    this.isClaude = true;
+  }
+
+  opener() {
+    // openers stay local: instant, and already state-aware
+    return this.fallback.opener();
+  }
+
+  async reply(text) {
+    try {
+      // rebuild the chat as alternating turns for the API
+      const messages = [];
+      for (const m of State.chatHistory.slice(-10)) {
+        messages.push({ role: m.who === 'user' ? 'user' : 'assistant', content: m.text });
+      }
+      while (messages.length && messages[0].role !== 'user') messages.shift();
+      // the chat log usually already contains the current user message
+      const last = messages[messages.length - 1];
+      if (!last || last.role !== 'user' || last.content !== text) {
+        messages.push({ role: 'user', content: text });
+      }
+
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': this.apiKey,
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: CLAUDE_MODEL,
+          max_tokens: 200,
+          system: umbraSystemPrompt(),
+          messages,
+        }),
+      });
+      if (!res.ok) throw new Error('api ' + res.status);
+      const data = await res.json();
+      if (data.stop_reason === 'refusal') throw new Error('refusal');
+      const reply = (data.content || []).filter((b) => b.type === 'text').map((b) => b.text).join(' ').trim();
+      if (!reply) throw new Error('empty');
+      return reply;
+    } catch {
+      return this.fallback.reply(text);
+    }
+  }
+}
+
 export class RuleBrain {
   constructor() {
     this._lastLine = '';
