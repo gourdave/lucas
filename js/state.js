@@ -7,9 +7,19 @@ export const State = {
   hunger: 100,          // 0..100, shown as the FOOD bar — eat to refill
   money: 0,             // grain coins, earned by popping monsters
   kills: 0,
+  xp: 0,                // progress within the current level
+  level: 1,
   guns: ['flare'],      // owned guns; everyone starts with the Flare Pistol
   gun: 'flare',         // equipped gun
   recipes: [],          // recipe ids bought at the shop
+  // the expedition: loot gathered OUTSIDE is pending until you make it home
+  exp: { active: false, t: 0, peak: 0, coins: 0, items: [] },
+  lostBag: null,        // { x, z, coins, items } dropped where you blacked out
+  quests: { date: '', list: [] },
+  lastChest: '',        // date the porch gift was last opened
+  garden: { plots: [null, null, null, null, null, null] }, // {crop, plantedAt}
+  seeds: {},            // { goldenwheat: 2, ... }
+  pets: { owned: [], active: null, eggs: [], incubating: null },
   distance: 0,          // live distance from the house (meters)
   maxDistance: 0,       // furthest the player has EVER gone (the therapist notices)
   fear: 0,              // 0 = sunny day at home, 1 = deep-field night
@@ -35,6 +45,10 @@ export const bus = {
   emit(evt, data) { for (const fn of listeners[evt] || []) fn(data); },
 };
 
+// current time — window.__warpMs lets tests fast-forward real-time growth
+export function gameNow() { return Date.now() + (window.__warpMs || 0); }
+export function todayStr() { return new Date(gameNow()).toISOString().slice(0, 10); }
+
 // --- save / load ---
 const KEY = 'bumpercrop.save.v1';
 
@@ -57,6 +71,15 @@ export function load() {
     State.guns ??= ['flare'];
     State.gun ??= 'flare';
     State.recipes ??= [];
+    State.xp ??= 0;
+    State.level ??= 1;
+    State.exp ??= { active: false, t: 0, peak: 0, coins: 0, items: [] };
+    State.lostBag ??= null;
+    State.quests ??= { date: '', list: [] };
+    State.lastChest ??= '';
+    State.garden ??= { plots: [null, null, null, null, null, null] };
+    State.seeds ??= {};
+    State.pets ??= { owned: [], active: null, eggs: [], incubating: null };
     State.flags ||= {};
     return true;
   } catch { return false; }

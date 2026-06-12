@@ -8,6 +8,9 @@
 
 import * as THREE from 'three';
 import { State, bus } from './state.js';
+import { unlocked } from './progression.js';
+import { seedForDepth } from './garden.js';
+import { eggTierForDepth, EGG_TIERS } from './pets.js';
 
 const CHUNK = 40;
 const GRID = 5;
@@ -322,11 +325,16 @@ export class World {
   }
 
   _buildBottles() {
-    // one potential almond-water bottle per chunk slot
+    // one potential almond-water bottle, seed pouch, and egg per chunk slot
     const body = new THREE.CylinderGeometry(0.09, 0.1, 0.34, 8);
     const mat = new THREE.MeshLambertMaterial({ color: 0xdfe8e2, emissive: 0x39443f });
     const capMat = new THREE.MeshLambertMaterial({ color: 0x8a4f4f });
     this.bottles = [];
+    this.pouches = [];
+    this.eggs = [];
+    const pouchGeo = new THREE.SphereGeometry(0.18, 7, 6);
+    const pouchMat = new THREE.MeshLambertMaterial({ color: 0x8a6a3e, emissive: 0x2e2010 });
+    const eggGeo = new THREE.SphereGeometry(0.2, 9, 8);
     for (let i = 0; i < SLOTS; i++) {
       const grp = new THREE.Group();
       grp.add(new THREE.Mesh(body, mat));
@@ -336,7 +344,49 @@ export class World {
       grp.visible = false;
       this.scene.add(grp);
       this.bottles.push(grp);
+
+      const pouch = new THREE.Mesh(pouchGeo, pouchMat);
+      pouch.scale.y = 1.2;
+      pouch.visible = false;
+      this.scene.add(pouch);
+      this.pouches.push(pouch);
+
+      const egg = new THREE.Mesh(eggGeo, new THREE.MeshLambertMaterial({ color: 0xd8d2c0, emissive: 0x222018 }));
+      egg.scale.y = 1.3;
+      egg.visible = false;
+      this.scene.add(egg);
+      this.eggs.push(egg);
     }
+
+    // the lost bag: a little sack with a light pillar so it's findable at night
+    this.bag = new THREE.Group();
+    const sack = new THREE.Mesh(new THREE.SphereGeometry(0.32, 8, 7),
+      new THREE.MeshLambertMaterial({ color: 0x6a5436 }));
+    sack.scale.y = 1.15;
+    sack.position.y = 0.3;
+    this.bag.add(sack);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.4, 9, 8, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0xffe9a0, transparent: true, opacity: 0.16, fog: false, side: THREE.DoubleSide, depthWrite: false }));
+    beam.position.y = 4.5;
+    this.bag.add(beam);
+    this.bag.visible = false;
+    this.scene.add(this.bag);
+  }
+
+  // for the Wheat Sprite pet: rough direction of the nearest visible treasure
+  nearestTreasureDir(pos, range) {
+    let best = null, bestD = range;
+    for (const list of [this.bottles, this.pouches, this.eggs]) {
+      for (const m of list) {
+        if (!m.visible) continue;
+        const d = Math.hypot(m.position.x - pos.x, m.position.z - pos.z);
+        if (d < bestD) { bestD = d; best = m; }
+      }
+    }
+    if (!best) return null;
+    const a = Math.atan2(best.position.x - pos.x, -(best.position.z - pos.z));
+    const dirs = ['north', 'northeast', 'east', 'southeast', 'south', 'southwest', 'west', 'northwest'];
+    return dirs[((Math.round(a / (Math.PI / 4)) % 8) + 8) % 8];
   }
 
   _reseedSlot(cx, cz) {
@@ -435,7 +485,7 @@ export class World {
       this.rails.setMatrixAt(idx, _mat.compose(_pos, _quat, _scl));
     }
 
-    // --- maybe an almond water bottle, deep in the fields ---
+    // --- maybe loot, deep in the fields (deeper = better) ---
     const bottle = this.bottles[slot];
     const id = cx + ',' + cz;
     const centerDist = Math.hypot(bx + CHUNK / 2, bz + CHUNK / 2);
@@ -445,6 +495,26 @@ export class World {
       bottle.userData.id = id;
     } else {
       bottle.visible = false;
+    }
+    const pouch = this.pouches[slot];
+    if (centerDist > 75 && rnd() < 0.18 && unlocked('garden') && !State.collectedPickups.includes('s:' + id)) {
+      pouch.position.set(bx + 6 + rnd() * 28, 0.2, bz + 6 + rnd() * 28);
+      pouch.visible = true;
+      pouch.userData.id = 's:' + id;
+      pouch.userData.dist = centerDist;
+    } else {
+      pouch.visible = false;
+    }
+    const egg = this.eggs[slot];
+    if (centerDist > 75 && rnd() < 0.12 && unlocked('pets') && !State.collectedPickups.includes('e:' + id)) {
+      egg.position.set(bx + 6 + rnd() * 28, 0.24, bz + 6 + rnd() * 28);
+      egg.visible = true;
+      egg.userData.id = 'e:' + id;
+      const tier = eggTierForDepth(centerDist);
+      egg.userData.tier = tier;
+      egg.material.color.setHex(EGG_TIERS[tier].color);
+    } else {
+      egg.visible = false;
     }
     return true;
   }
@@ -509,6 +579,32 @@ export class World {
         State.totalAlmondFound++;
         bus.emit('pickup', { what: 'almondWater' });
       }
+    }
+    // seed pouches + eggs (these go into the expedition's pending loot)
+    for (const pouch of this.pouches) {
+      if (!pouch.visible) continue;
+      const dx = pouch.position.x - playerPos.x, dz = pouch.position.z - playerPos.z;
+      if (dx * dx + dz * dz < 2.3) {
+        pouch.visible = false;
+        State.collectedPickups.push(pouch.userData.id);
+        bus.emit('seedFound', { crop: seedForDepth(pouch.userData.dist) });
+      }
+    }
+    for (const egg of this.eggs) {
+      if (!egg.visible) continue;
+      const dx = egg.position.x - playerPos.x, dz = egg.position.z - playerPos.z;
+      if (dx * dx + dz * dz < 2.3) {
+        egg.visible = false;
+        State.collectedPickups.push(egg.userData.id);
+        bus.emit('eggFound', { tier: egg.userData.tier });
+      }
+    }
+    // the lost bag, if one is out there
+    if (State.lostBag) {
+      this.bag.visible = true;
+      this.bag.position.set(State.lostBag.x, 0, State.lostBag.z);
+    } else {
+      this.bag.visible = false;
     }
   }
 }

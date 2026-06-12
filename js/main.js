@@ -13,6 +13,10 @@ import { Dreams } from './dreams.js';
 import { buildTherapist, RuleBrain, ClaudeBrain, getClaudeKey, PROXY_URL } from './therapist.js';
 import { UI, MEALS } from './ui.js';
 import { GameAudio } from './audio.js';
+import { initProgression, ensureDailyQuests, Expedition, addXp, unlocked, titleFor, chestAvailable, openChest, questProgress } from './progression.js';
+import { Garden, CROPS } from './garden.js';
+import { Pets, EGG_TIERS, hatchEgg } from './pets.js';
+import { gameNow } from './state.js';
 
 const WALK_SPEED = 4.2;
 const EYE = 1.62;
@@ -57,6 +61,9 @@ const world = new World(scene);
 const house = buildHouse(scene);
 const creatures = new Creatures(scene);
 const monsters = new Monsters(scene);
+const garden = new Garden(scene);
+const pets = new Pets(scene);
+const allHotspots = () => house.hotspots.concat(garden.plotHotspots());
 const dreams = new Dreams();
 const therapist = buildTherapist(scene);
 const brain = new RuleBrain();
@@ -101,6 +108,9 @@ function startGame(fromSave) {
   UI.setFood(State.inventory.food);
   UI.setHunger(State.hunger);
   UI.setMoney(State.money);
+  initProgression();
+  UI.setLevel();
+  UI.setPetsButton(unlocked('pets'));
   playing = true;
   controls.enabled = true;
   if (!State.flags.welcomed) {
@@ -130,6 +140,99 @@ function interact() {
   else if (id === 'sofa') rest();
   else if (id === 'therapist') openTherapist();
   else if (id === 'shop') openShop();
+  else if (id === 'incubator') useIncubator();
+  else if (id === 'chest') openDailyChest();
+  else if (id.startsWith('plot')) usePlot(+id.slice(4));
+}
+
+// ---------- garden ----------
+function usePlot(i) {
+  const plotState = State.garden.plots[i];
+  if (!plotState) {
+    const options = Object.entries(State.seeds)
+      .filter(([, n]) => n > 0)
+      .map(([id, n]) => ({
+        value: id, emoji: CROPS[id].emoji,
+        label: `${CROPS[id].name} (×${n})`,
+        sub: `grows in ${CROPS[id].growMin} min · sells for 🪙${CROPS[id].sell}`,
+        button: 'plant',
+      }));
+    if (!options.length) { UI.toast('No seeds! Find seed pouches out in the fields, or buy some at the stall.'); return; }
+    controls.enabled = false;
+    controls.releaseLock();
+    UI.openPicker('🌱 PLANT A SEED', options, (cropId) => {
+      garden.plant(i, cropId);
+      audio.blip();
+      UI.toast(`${CROPS[cropId].emoji} Planted! Come back in ${CROPS[cropId].growMin} minutes — it grows even while you're away.`);
+      controls.enabled = true;
+    });
+    return;
+  }
+  const result = garden.harvest(i);
+  if (result) {
+    audio.chime();
+    addXp(10);
+    UI.setFood(State.inventory.food);
+    UI.toast(`${result.crop.emoji} Harvested ×${result.count}! Eat it, or sell it at the stall.`);
+  } else {
+    UI.toast(`⏳ Not ready — ${garden.minutesLeft(plotState)} minutes to go.`);
+  }
+}
+
+// ---------- pets & eggs ----------
+function useIncubator() {
+  const inc = State.pets.incubating;
+  if (inc) {
+    const doneAt = inc.startedAt + EGG_TIERS[inc.tier].minutes * 60_000;
+    if (gameNow() >= doneAt) {
+      hatchNow();
+    } else {
+      UI.toast(`🥚 The ${EGG_TIERS[inc.tier].name} is warm and wiggling — ${Math.ceil((doneAt - gameNow()) / 60_000)} minutes left.`);
+    }
+    return;
+  }
+  if (!State.pets.eggs.length) { UI.toast('No eggs to incubate. Find them deep in the fields — past the 75m mark!'); return; }
+  const options = State.pets.eggs.map((egg, idx) => ({
+    value: idx, emoji: EGG_TIERS[egg.tier].emoji,
+    label: EGG_TIERS[egg.tier].name,
+    sub: `hatches in ${EGG_TIERS[egg.tier].minutes} min`,
+    button: 'incubate',
+  }));
+  controls.enabled = false;
+  controls.releaseLock();
+  UI.openPicker('🥚 CHOOSE AN EGG', options, (idx) => {
+    const [egg] = State.pets.eggs.splice(idx, 1);
+    State.pets.incubating = { tier: egg.tier, mult: egg.mult || 1, startedAt: gameNow() };
+    save();
+    audio.blip();
+    UI.toast(`🥚 Incubating! Come back in ${EGG_TIERS[egg.tier].minutes} minutes.`);
+    controls.enabled = true;
+  });
+}
+
+async function hatchNow() {
+  const inc = State.pets.incubating;
+  State.pets.incubating = null;
+  const type = hatchEgg(inc.tier, inc.mult);
+  const pet = pets.addPet(type);
+  bus.emit('hatched', { type });
+  audio.hatchJingle();
+  addXp(25);
+  UI.setPetsButton(true);
+  controls.enabled = false;
+  controls.releaseLock();
+  await UI.showHatch(type);
+  controls.enabled = true;
+  UI.toast(`${pet.name} joins you! Open 🐾 to make it follow you or rename it.`);
+}
+
+function openDailyChest() {
+  const reward = openChest();
+  if (!reward) { UI.toast('🎁 Already opened today — a new gift appears every day!'); return; }
+  audio.chime();
+  UI.setMoney(State.money);
+  UI.setWater(State.inventory.almondWater);
+  UI.toast(`🎁 Daily gift: +🪙${reward.coins}${reward.bonus ? ' and ' + reward.bonus : ''}!`);
 }
 controls.onInteract = interact;
 UI.onPrompt = interact;
@@ -201,12 +304,53 @@ function fire() {
 bus.on('monsterKilled', ({ coins }) => {
   audio.pop();
   audio.coin();
+  const earned = Math.round(coins * (pets.coinBonus || 1));
+  Expedition.addCoins(earned);
+  addXp(8);
+  if (State.kills === 1) UI.toast(`🪙 +${earned} pending! Loot banks when you make it home — the longer you stay out, the bigger the Bravery bonus.`, 5200);
+  else UI.toast(`🪙 +${earned} pending`, 1400);
+});
+
+bus.on('seedFound', ({ crop }) => {
+  audio.chime();
+  Expedition.addItem({ kind: 'seed', crop });
+  UI.toast(`🌱 Found ${CROPS[crop].name} seeds! (pending — get home to keep them)`);
+});
+
+bus.on('eggFound', ({ tier }) => {
+  audio.chime();
+  Expedition.addItem({ kind: 'egg', tier, mult: Expedition.braveryMult() });
+  UI.toast(`🥚 A ${EGG_TIERS[tier].name}! (pending — get home to keep it)`);
+});
+
+bus.on('banked', ({ coins, items, mult }) => {
+  audio.coin();
   UI.setMoney(State.money);
-  if (State.kills === 1) UI.toast(`🪙 +${coins}! Monsters drop grain coins — spend them at the stall by the gate.`);
-  else UI.toast(`🪙 +${coins}`, 1600);
+  UI.setLevel();
+  const bits = [];
+  if (coins > 0) bits.push(`🪙${coins}`);
+  const eggCount = items.filter((i) => i.kind === 'egg').length;
+  const seedCount = items.filter((i) => i.kind === 'seed').length;
+  if (eggCount) bits.push(`🥚×${eggCount}`);
+  if (seedCount) bits.push(`🌱×${seedCount}`);
+  UI.toast(`🏠 BANKED! ${bits.join(' ')} (Bravery ×${mult})`, 4500);
+});
+
+bus.on('levelup', ({ level, title, unlocks }) => {
+  audio.fanfare();
+  UI.setLevel();
+  UI.setPetsButton(unlocked('pets'));
+  let msg = `⭐ LEVEL ${level} — ${title}!`;
+  if (unlocks.includes('garden')) msg += ' 🌱 NEW: your GARDEN is ready in the yard!';
+  if (unlocks.includes('pets')) msg += ' 🥚 NEW: PET EGGS now appear in the fields + incubator in the house!';
+  UI.toast(msg, 6500);
 });
 
 bus.on('monsterBite', () => {
+  if (pets.tryShield()) {
+    UI.toast('🎃 Your Strawlem blocks the bite!');
+    return;
+  }
   audio.bite();
   UI.flash();
   shake = 0.45;
@@ -215,6 +359,28 @@ bus.on('monsterBite', () => {
 });
 
 controls.onDrink = () => UI.onDrink && UI.onDrink();
+
+UI.onOpenQuests = () => {
+  if (!playing || busy || inDream) return;
+  controls.enabled = false;
+  controls.releaseLock();
+  audio.blip();
+  UI.openQuests();
+};
+UI.onOpenPets = () => {
+  if (!playing || busy || inDream) return;
+  controls.enabled = false;
+  controls.releaseLock();
+  audio.blip();
+  UI.openPets();
+};
+UI.onPanelClosed = () => { controls.enabled = true; };
+UI.onQuestClaimed = (q) => {
+  audio.coin();
+  UI.setMoney(State.money);
+  UI.setLevel();
+  UI.toast(`📜 Quest complete! +🪙${q.coins} +${q.xp}xp`);
+};
 UI.onDrink = () => {
   if (State.inventory.almondWater <= 0) return;
   State.inventory.almondWater--;
@@ -241,6 +407,8 @@ function gainMeal(id, how, verb = 'make yourself') {
   const food = State.inventory.food;
   food[id] = (food[id] || 0) + 1;
   State.meals++;
+  bus.emit('cooked', {});
+  addXp(4);
   UI.setFood(food);
   UI.toast(`${MEALS[id].emoji} You ${verb} ${MEALS[id].name}${how}. It goes in your pocket.`);
 }
@@ -365,6 +533,8 @@ async function wakeUp() {
   State.hunger = Math.max(0, State.hunger - 15);   // dreaming works up an appetite
   State.dreamLog.push({ id: def.id, title: def.title });
   State.flags.lastDream = def.id;
+  bus.emit('dreamed', {});
+  addXp(15);
   if (def.reward.type === 'water') {
     State.inventory.almondWater++;
     State.totalAlmondFound++;
@@ -382,6 +552,11 @@ async function wakeUp() {
 
 // ---------- getting caught ----------
 bus.on('creatureAttack', () => {
+  if (pets.tryShield()) {
+    UI.toast('🎃 Your Strawlem throws itself in the way! (blocked)');
+    audio.chime();
+    return;
+  }
   if (State.flags.dreamShield) {
     State.flags.dreamShield = false;
     UI.toast('The starlight grin flares around you. It cannot touch you. Not this time.');
@@ -405,6 +580,9 @@ async function blackout() {
   busy = true;
   controls.enabled = false;
   State.blackouts++;
+  const hadLoot = Expedition.pendingCount() > 0;
+  Expedition.dropBag(player);
+  if (hadLoot) UI.toast('🎒 Your loot bag fell where you blacked out — go back for it!', 6000);
   await UI.fade(1, 1.6);
   placeAtBed();
   State.sanity = 50;
@@ -427,9 +605,12 @@ window.__creatures = creatures;
 window.__monsters = monsters;
 window.__fire = fire;
 window.__pos = () => ({ x: +player.x.toFixed(2), y: +player.y.toFixed(2), z: +player.z.toFixed(2) });
+window.__addXp = addXp;
 window.__audio = audio;
 
+let __frameCount = 0;
 function tick() {
+  window.__frames = ++__frameCount;
   const dt = Math.min(clock.getDelta(), 0.05);
   if (!playing) { renderer.render(scene, camera); return; }
   State.playTime += dt;
@@ -499,6 +680,29 @@ function tick() {
   }
   UI.setCrosshair(playing && controls.enabled && !inDream);
 
+  // --- expedition: bravery builds outside, loot banks at home ---
+  Expedition.update(dt, State.distance, inYard, player);
+  if (State.exp.active) questProgress('depth', 1, State.distance);
+  // lost bag rescue (never while blacking out — you're lying on top of it)
+  if (State.lostBag && !busy && controls.enabled) {
+    const bdx = State.lostBag.x - player.x, bdz = State.lostBag.z - player.z;
+    if (bdx * bdx + bdz * bdz < 4) {
+      const bag = State.lostBag;
+      Expedition.reclaimBag();
+      audio.chime();
+      UI.toast(`🎒 Found your lost bag! +🪙${bag.coins} pending — now get it home!`, 5000);
+    }
+  }
+
+  // --- cozy systems ---
+  garden.group.visible = unlocked('garden');
+  garden.update(dt);
+  pets.update(dt, {
+    playerPos: player, fear: world.fear, monsters, creatures, world,
+    addCalm, toast: (m) => UI.toast(m), audio,
+  });
+  ensureDailyQuests();
+
   // --- hunger: drains slowly; an empty stomach gnaws at your calm ---
   State.hunger = Math.max(0, State.hunger - dt * 0.18);
   if (State.hunger < 25 && !State.flags.hungryHinted) {
@@ -524,17 +728,22 @@ function tick() {
   currentHotspot = null;
   if (controls.enabled && !busy) {
     let best = Infinity;
-    for (const h of house.hotspots) {
+    for (const h of allHotspots()) {
+      if (h.locked && !unlocked(h.locked)) continue;
+      if (h.id === 'chest' && !chestAvailable()) continue;
       if (Math.abs(player.y - h.y) > 1.4) continue;
       const d2 = (player.x - h.x) ** 2 + (player.z - h.z) ** 2;
       if (d2 < h.r * h.r && d2 < best) { best = d2; currentHotspot = h; }
     }
   }
-  UI.setPrompt(currentHotspot ? currentHotspot.label : null);
+  UI.setPrompt(currentHotspot ? (typeof currentHotspot.label === 'function' ? currentHotspot.label() : currentHotspot.label) : null);
 
   // --- HUD ---
   UI.setCalm((State.sanity / State.maxSanity) * 100);
   UI.setHunger(State.hunger);
+  UI.setLevel();
+  UI.setBravery(State.exp.active ? Expedition.braveryMult() : null);
+  UI.setPending(Expedition.pendingCount());
   UI.setVignette(State.sanity < 40 ? ((40 - State.sanity) / 40) * 0.95 : 0);
   let rel = Math.atan2(player.x, player.z) - controls.yaw;
   while (rel > Math.PI) rel -= Math.PI * 2;

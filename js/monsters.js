@@ -76,7 +76,7 @@ export class Monsters {
       m.state = 'DIE';
       m.timer = 0.5;
       State.kills++;
-      State.money += COINS_PER_KILL;
+      // coins go to the expedition's pending loot (main routes them)
       bus.emit('monsterKilled', { coins: COINS_PER_KILL });
     } else {
       // knocked back a step

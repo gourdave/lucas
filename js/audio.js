@@ -307,6 +307,40 @@ export class GameAudio {
     osc.start(t); osc.stop(t + 0.3);
   }
 
+  whisperNow() { this._whisper(); }
+
+  // level-up fanfare: a bright ascending arpeggio
+  fanfare() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    [523, 659, 784, 1046].forEach((f, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = f;
+      const g = ctx.createGain();
+      this._env(g, t + i * 0.09, 0.12, 0.01, 0.5);
+      osc.connect(g).connect(this.master);
+      osc.start(t + i * 0.09);
+      osc.stop(t + i * 0.09 + 0.6);
+    });
+  }
+
+  // egg hatch: sparkly little run
+  hatchJingle() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    [880, 1108, 1318, 1760, 2217].forEach((f, i) => {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = f;
+      const g = ctx.createGain();
+      this._env(g, t + i * 0.07, 0.07, 0.01, 0.35);
+      osc.connect(g).connect(this.master);
+      osc.start(t + i * 0.07);
+      osc.stop(t + i * 0.07 + 0.45);
+    });
+  }
+
   munch() {
     if (!this.ctx) return;
     const ctx = this.ctx, t = ctx.currentTime;

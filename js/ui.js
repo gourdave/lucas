@@ -1,9 +1,12 @@
 // ui.js — all the DOM: HUD, title screen, fades, toasts, the book reader and
 // the therapist chat panel. Other modules never touch the DOM directly.
 
-import { State } from './state.js';
+import { State, save } from './state.js';
 import { SHOP_ITEMS, purchase } from './shop.js';
 import { getClaudeKey, setClaudeKey } from './therapist.js';
+import { claimQuest, xpNeed } from './progression.js';
+import { CROPS } from './garden.js';
+import { PETS, RARITY } from './pets.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -135,6 +138,17 @@ export const UI = {
     });
     $('chatclose').addEventListener('click', () => this.closeChat());
     $('shopclose').addEventListener('click', () => this.closeShop());
+    $('questsclose').addEventListener('click', () => this.closeQuests());
+    $('petsclose').addEventListener('click', () => this.closePets());
+    $('pickerclose').addEventListener('click', () => this.closePicker());
+    $('hatchok').addEventListener('click', () => {
+      $('hatch').classList.add('hidden');
+      const r = this._hatchResolve;
+      this._hatchResolve = null;
+      r && r();
+    });
+    $('questsbtn').addEventListener('click', () => this.onOpenQuests && this.onOpenQuests());
+    $('petsbtn').addEventListener('click', () => this.onOpenPets && this.onOpenPets());
     $('chatsend').addEventListener('click', () => this._send());
     this.chatinput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this._send();
@@ -207,6 +221,161 @@ export const UI = {
   },
   setMoney(n) {
     document.getElementById('moneycount').textContent = n;
+  },
+  setLevel() {
+    document.getElementById('levellabel').textContent = 'LV ' + State.level;
+    document.getElementById('xpfill').style.width =
+      Math.min(100, (State.xp / xpNeed(State.level)) * 100) + '%';
+  },
+  setBravery(mult) {
+    const el = document.getElementById('bravery');
+    el.classList.toggle('hidden', mult === null);
+    if (mult !== null) document.getElementById('braveryval').textContent = mult.toFixed(1);
+  },
+  setPending(n) {
+    const el = document.getElementById('pending');
+    el.classList.toggle('hidden', n <= 0);
+    if (n > 0) document.getElementById('pendingval').textContent = n;
+  },
+  setPetsButton(show) {
+    document.getElementById('petsbtn').classList.toggle('hidden', !show);
+  },
+
+  // ---------- quests ----------
+  openQuests() {
+    $('quests').classList.remove('hidden');
+    this._renderQuests();
+  },
+  closeQuests() {
+    $('quests').classList.add('hidden');
+    this.onPanelClosed && this.onPanelClosed();
+  },
+  _renderQuests() {
+    const wrap = $('questlist');
+    wrap.innerHTML = '';
+    State.quests.list.forEach((q, i) => {
+      const row = document.createElement('div');
+      row.className = 'rowitem';
+      const pct = Math.min(100, (q.progress / q.target) * 100);
+      row.innerHTML = `
+        <div class="ri-main">
+          <div class="ri-title">${q.claimed ? '✅ ' : ''}${q.desc}</div>
+          <div class="ri-sub">${q.progress}/${q.target} · reward: 🪙${q.coins} + ${q.xp}xp</div>
+          <div class="qbar"><div style="width:${pct}%"></div></div>
+        </div>`;
+      const btn = document.createElement('button');
+      btn.textContent = q.claimed ? 'claimed' : q.progress >= q.target ? 'CLAIM' : '…';
+      btn.disabled = q.claimed || q.progress < q.target;
+      btn.addEventListener('click', () => {
+        if (claimQuest(i)) {
+          this.onQuestClaimed && this.onQuestClaimed(q);
+          this._renderQuests();
+        }
+      });
+      row.appendChild(btn);
+      wrap.appendChild(row);
+    });
+    const note = document.createElement('div');
+    note.className = 'ri-sub';
+    note.style.textAlign = 'center';
+    note.textContent = 'New quests every day — Dr. Umbra posts them at midnight.';
+    wrap.appendChild(note);
+  },
+
+  // ---------- pets ----------
+  openPets() {
+    $('petspanel').classList.remove('hidden');
+    this._renderPets();
+  },
+  closePets() {
+    $('petspanel').classList.add('hidden');
+    this.onPanelClosed && this.onPanelClosed();
+  },
+  _renderPets() {
+    const wrap = $('petlist');
+    wrap.innerHTML = '';
+    if (!State.pets.owned.length && !State.pets.eggs.length) {
+      wrap.innerHTML = '<div class="ri-sub" style="text-align:center">No pets yet — find mystery eggs deep in the fields (past the 75m mark) and hatch them in the incubator!</div>';
+    }
+    for (const pet of State.pets.owned) {
+      const info = PETS[pet.type];
+      const rar = RARITY[info.rarity];
+      const row = document.createElement('div');
+      row.className = 'rowitem';
+      const active = State.pets.active === pet.uid;
+      row.innerHTML = `
+        <div style="font-size:26px">${info.emoji}</div>
+        <div class="ri-main">
+          <input class="pet-name-input" value="${pet.name.replace(/"/g, '')}" maxlength="18">
+          <div class="ri-sub" style="color:${rar.color}">${rar.name} · ${info.ability}</div>
+        </div>`;
+      row.querySelector('input').addEventListener('change', (e) => {
+        pet.name = e.target.value.slice(0, 18) || info.name;
+        save();
+      });
+      const btn = document.createElement('button');
+      btn.textContent = active ? 'following ✓' : 'follow me';
+      if (active) btn.className = 'ghost3';
+      btn.addEventListener('click', () => {
+        State.pets.active = active ? null : pet.uid;
+        save();
+        this._renderPets();
+      });
+      row.appendChild(btn);
+      wrap.appendChild(row);
+    }
+    if (State.pets.eggs.length) {
+      const head = document.createElement('div');
+      head.className = 'ri-sub';
+      head.textContent = `🥚 Eggs waiting: ${State.pets.eggs.length} — take them to the incubator in the house!`;
+      wrap.appendChild(head);
+    }
+  },
+
+  // ---------- generic picker (seeds, eggs) ----------
+  openPicker(title, options, cb) {
+    $('pickertitle').textContent = title;
+    const wrap = $('pickerlist');
+    wrap.innerHTML = '';
+    this._pickerCb = cb;
+    if (!options.length) {
+      wrap.innerHTML = '<div class="ri-sub" style="text-align:center">Nothing here yet!</div>';
+    }
+    for (const opt of options) {
+      const row = document.createElement('div');
+      row.className = 'rowitem';
+      row.innerHTML = `<div style="font-size:22px">${opt.emoji}</div>
+        <div class="ri-main"><div class="ri-title">${opt.label}</div><div class="ri-sub">${opt.sub || ''}</div></div>`;
+      const btn = document.createElement('button');
+      btn.textContent = opt.button || 'pick';
+      btn.addEventListener('click', () => {
+        $('picker').classList.add('hidden');
+        const fn = this._pickerCb;
+        this._pickerCb = null;
+        fn && fn(opt.value);
+      });
+      row.appendChild(btn);
+      wrap.appendChild(row);
+    }
+    $('picker').classList.remove('hidden');
+  },
+  closePicker() {
+    $('picker').classList.add('hidden');
+    this._pickerCb = null;
+    this.onPanelClosed && this.onPanelClosed();
+  },
+
+  // ---------- the hatch reveal ----------
+  showHatch(type) {
+    const info = PETS[type];
+    const rar = RARITY[info.rarity];
+    $('hatchemoji').textContent = info.emoji;
+    $('hatchrarity').textContent = rar.name;
+    $('hatchrarity').style.color = rar.color;
+    $('hatchname').textContent = info.name;
+    $('hatchability').textContent = info.ability;
+    $('hatch').classList.remove('hidden');
+    return new Promise((resolve) => { this._hatchResolve = resolve; });
   },
   setCrosshair(on) {
     document.getElementById('crosshair').classList.toggle('hidden', !on);
@@ -310,6 +479,30 @@ export const UI = {
         const err = purchase(item.id);
         if (err) { this.toast(err); return; }
         this.onPurchase && this.onPurchase(item);
+        this._renderShop();
+      });
+      row.appendChild(btn);
+      wrap.appendChild(row);
+    }
+    // sell harvested crops back to the scarecrow
+    const crops = Object.entries(State.inventory.food).filter(([id, n]) => CROPS[id] && n > 0);
+    if (crops.length) {
+      const total = crops.reduce((sum, [id, n]) => sum + CROPS[id].sell * n, 0);
+      const row = document.createElement('div');
+      row.className = 'shopitem';
+      row.innerHTML = `
+        <div class="si-emoji">🧺</div>
+        <div class="si-info">
+          <div class="si-name">Sell your harvest</div>
+          <div class="si-desc">${crops.map(([id, n]) => `${CROPS[id].emoji}×${n}`).join('  ')}</div>
+        </div>`;
+      const btn = document.createElement('button');
+      btn.textContent = `+🪙 ${total}`;
+      btn.addEventListener('click', () => {
+        for (const [id] of crops) State.inventory.food[id] = 0;
+        State.money += total;
+        save();
+        this.onPurchase && this.onPurchase({ emoji: '🧺', name: 'Harvest sold' });
         this._renderShop();
       });
       row.appendChild(btn);

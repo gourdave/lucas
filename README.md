@@ -18,6 +18,14 @@ as long as you stay close to home.
 - **The fields are not.** The further you go, the darker the world follows.
   Deep enough out, tall dark things start walking the wheat. Don't stare at
   them. Don't stand still. Walk home — daylight un-happens them.
+- **Bravery & banking.** Loot found outside is pending until you make it home —
+  it banks with a Bravery multiplier that grows the longer and deeper you stay
+  out. Black out and it drops in a lost bag where you fell. Risk it or run.
+- **Level up.** XP from everything; titles from Wheat Wanderer to Legend of
+  Level 10. Level 2 unlocks your **garden** (real-time crops, seeds found in
+  the fields); level 3 unlocks **pets** (mystery eggs, an incubator, and eight
+  companions from common to legendary). Dr. Umbra posts three daily quests,
+  and a gift appears on the porch every day.
 - **Sleep to dream.** Dreams are adventures: floating wheat islands, neon
   voids, a stalk as tall as weather. You always wake up with something.
 - **You have a Flare Pistol.** It fires light. Past the **75m mark**, wormlings
