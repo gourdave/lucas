@@ -56,6 +56,14 @@
     padding: 4px 12px; display: flex; gap: 7px; align-items: center;
   }
   #homearrow { display: inline-block; transition: transform .15s linear; font-size: 12px; }
+  #money {
+    font-size: 13px; color: #e8d49a; background: rgba(20,16,8,.5); border-radius: 14px; padding: 4px 12px;
+  }
+  #crosshair {
+    position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    width: 5px; height: 5px; border-radius: 50%; z-index: 9; pointer-events: none;
+    background: rgba(255,235,190,.65); box-shadow: 0 0 6px rgba(255,225,160,.5);
+  }
   #waterbtn {
     pointer-events: auto; font-size: 12px; color: #dfe8e2; background: rgba(28,38,40,.75);
     border: 1px solid rgba(190,220,210,.4); border-radius: 14px; padding: 6px 12px; cursor: pointer;
@@ -133,6 +141,37 @@
     border-radius: 6px; padding: 9px 16px; cursor: pointer;
   }
 
+  /* ---------- shop ---------- */
+  #shop {
+    position: fixed; inset: 0; z-index: 35; display: flex; align-items: center; justify-content: center;
+    background: rgba(4,5,7,.72); padding: 14px;
+  }
+  #shoppanel {
+    width: min(560px, 100%); max-height: 84vh; display: flex; flex-direction: column;
+    background: rgba(16,14,10,.96); border: 1px solid rgba(216,178,79,.4); border-radius: 14px; overflow: hidden;
+  }
+  #shophead {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 12px 16px; font-size: 13px; letter-spacing: .2em; color: #d8b24f; background: rgba(60,44,16,.4);
+  }
+  #shophead #shopmoney { letter-spacing: 0; color: #e8d49a; }
+  #shopclose { background: none; border: none; color: #c9b89a; font-size: 22px; cursor: pointer; line-height: 1; }
+  #shopnote { font-size: 12px; color: #8d8470; padding: 10px 16px 4px 16px; font-style: italic; }
+  #shopitems { overflow-y: auto; padding: 10px 12px 14px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .shopitem {
+    display: flex; align-items: center; gap: 12px; padding: 10px 12px;
+    background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08); border-radius: 10px;
+  }
+  .shopitem .si-emoji { font-size: 22px; }
+  .shopitem .si-info { flex: 1; }
+  .shopitem .si-name { font-size: 14px; color: #e8dcc2; }
+  .shopitem .si-desc { font-size: 11.5px; color: #97907c; line-height: 1.45; margin-top: 2px; }
+  .shopitem button {
+    font-size: 12px; padding: 8px 14px; border-radius: 8px; border: none; cursor: pointer;
+    background: #d8b24f; color: #14130c; font-weight: 600; white-space: nowrap;
+  }
+  .shopitem button:disabled { background: rgba(255,255,255,.12); color: #777; cursor: default; }
+
   /* ---------- therapist chat ---------- */
   #chat {
     position: fixed; left: 50%; transform: translateX(-50%); bottom: 0; z-index: 35;
@@ -169,7 +208,10 @@
     CALM<div class="bar"><div id="calmfill"></div></div>
     <div style="margin-top:5px">FOOD<div class="bar"><div id="hungerfill"></div></div></div>
   </div>
-  <div id="homeinfo" class="hidden"><span id="homearrow">▲</span><span id="homedist">0m</span></div>
+  <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+    <div id="homeinfo" class="hidden"><span id="homearrow">▲</span><span id="homedist">0m</span></div>
+    <div id="money">🪙 <span id="moneycount">0</span></div>
+  </div>
   <div id="pocket">
     <button id="waterbtn" class="hidden">🧴 ×<span id="watercount">0</span> — drink</button>
     <div id="foodrow"></div>
@@ -177,6 +219,7 @@
 </div>
 
 <button id="prompt" class="hidden"></button>
+<div id="crosshair" class="hidden"></div>
 <div id="grain"></div>
 <div id="vignette"></div>
 <div id="flash"></div>
@@ -201,6 +244,18 @@
     <h2 id="booktitle"></h2>
     <p id="bookbody"></p>
     <button id="bookclose">put the book back</button>
+  </div>
+</div>
+
+<div id="shop" class="hidden">
+  <div id="shoppanel">
+    <div id="shophead">
+      <span>🌾 THE CROP EXCHANGE</span>
+      <span id="shopmoney">🪙 0</span>
+      <button id="shopclose">×</button>
+    </div>
+    <div id="shopnote">The scarecrow says nothing. The prices are on little wooden tags.</div>
+    <div id="shopitems"></div>
   </div>
 </div>
 

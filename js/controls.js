@@ -50,8 +50,8 @@ export class Controls {
       if (!this.enabled || this.isTouch) return;
       if (document.pointerLockElement !== cv) {
         if (cv.requestPointerLock) cv.requestPointerLock();
-      } else if (this.onInteract) {
-        this.onInteract(); // while locked, a click acts on the nearest prompt
+      } else if (this.onPrimary) {
+        this.onPrimary(); // while locked: interact if there's a prompt, else fire
       }
     });
     addEventListener('mousemove', (e) => {
@@ -111,8 +111,8 @@ export class Controls {
         this.base.classList.add('hidden');
       } else if (e.pointerId === this._lookPtr) {
         const moved = Math.hypot(e.clientX - this._lsx, e.clientY - this._lsy);
-        if (moved < TAP_PX && performance.now() - this._lt < TAP_MS && this.enabled && this.onInteract) {
-          this.onInteract();
+        if (moved < TAP_PX && performance.now() - this._lt < TAP_MS && this.enabled && this.onPrimary) {
+          this.onPrimary();
         }
         this._lookPtr = null;
       }

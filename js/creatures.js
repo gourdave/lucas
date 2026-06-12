@@ -109,7 +109,8 @@ export class Creatures {
     this.attackCooldown -= dt;
     this.nearestDist = Infinity;
 
-    const wantSpawn = fear > 0.45 && !inYard;
+    // hallucinations only exist past the 150 mark
+    const wantSpawn = State.distance > 150 && !inYard;
     const cap = fear > 0.8 ? 3 : 1;
     const activeCount = this.pool.filter(p => p.active).length;
     if (wantSpawn && activeCount < cap && this.spawnTimer <= 0) {
@@ -128,7 +129,7 @@ export class Creatures {
       this.nearestDist = Math.min(this.nearestDist, dist);
 
       // everything calms down near home
-      if ((inYard || fear < 0.3) && c.state !== 'FLEE') this._despawn(c);
+      if ((inYard || State.distance < 135) && c.state !== 'FLEE') this._despawn(c);
 
       // face the player (only rotate around Y)
       m.rotation.y = Math.atan2(_v.x, _v.z);

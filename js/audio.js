@@ -242,6 +242,71 @@ export class GameAudio {
     osc.stop(t + seconds + 0.05);
   }
 
+  // a soft "fwip" of light leaving the barrel — deliberately not a bang
+  shoot() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(640, t);
+    osc.frequency.exponentialRampToValueAtTime(180, t + 0.12);
+    const g = ctx.createGain();
+    this._env(g, t, 0.14, 0.004, 0.12);
+    osc.connect(g).connect(this.master);
+    osc.start(t); osc.stop(t + 0.16);
+    const n = ctx.createBufferSource();
+    n.buffer = this._noiseBuffer(0.08);
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass'; hp.frequency.value = 2600;
+    const ng = ctx.createGain();
+    this._env(ng, t, 0.06, 0.004, 0.07);
+    n.connect(hp).connect(ng).connect(this.master);
+    n.start(t);
+  }
+
+  // the wet pop of a wormling bursting into coins
+  pop() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(140, t);
+    osc.frequency.exponentialRampToValueAtTime(420, t + 0.08);
+    const g = ctx.createGain();
+    this._env(g, t, 0.16, 0.005, 0.1);
+    osc.connect(g).connect(this.master);
+    osc.start(t); osc.stop(t + 0.14);
+  }
+
+  coin() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    for (const [f, d] of [[1318, 0], [1760, 0.07]]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = f;
+      const g = ctx.createGain();
+      this._env(g, t + d, 0.09, 0.005, 0.25);
+      osc.connect(g).connect(this.master);
+      osc.start(t + d); osc.stop(t + d + 0.3);
+    }
+  }
+
+  bite() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(82, t);
+    osc.frequency.exponentialRampToValueAtTime(48, t + 0.25);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass'; lp.frequency.value = 240;
+    const g = ctx.createGain();
+    this._env(g, t, 0.26, 0.01, 0.26);
+    osc.connect(lp).connect(g).connect(this.master);
+    osc.start(t); osc.stop(t + 0.3);
+  }
+
   munch() {
     if (!this.ctx) return;
     const ctx = this.ctx, t = ctx.currentTime;

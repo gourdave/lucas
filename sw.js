@@ -1,6 +1,6 @@
-// sw.js — tiny cache-first service worker so the game opens instantly and
-// works offline after the first visit.
-const CACHE = 'bumpercrop-v1';
+// sw.js — network-first service worker: always serve the freshest game when
+// online (so updates appear immediately), fall back to cache when offline.
+const CACHE = 'bumpercrop-v3';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,8 @@ const ASSETS = [
   './js/world.js',
   './js/house.js',
   './js/creatures.js',
+  './js/monsters.js',
+  './js/shop.js',
   './js/dreams.js',
   './js/therapist.js',
   './js/ui.js',
@@ -34,12 +36,14 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
   e.respondWith(
-    caches.match(e.request).then((hit) => hit || fetch(e.request).then((res) => {
-      if (res.ok) {
-        const copy = res.clone();
-        caches.open(CACHE).then((c) => c.put(e.request, copy));
-      }
-      return res;
-    }))
+    fetch(e.request)
+      .then((res) => {
+        if (res.ok) {
+          const copy = res.clone();
+          caches.open(CACHE).then((c) => c.put(e.request, copy));
+        }
+        return res;
+      })
+      .catch(() => caches.match(e.request))
   );
 });
