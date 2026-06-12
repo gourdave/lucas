@@ -251,7 +251,7 @@ const KEY_STORAGE = 'bumpercrop.claudekey';
 // The global brain: a Cloudflare Worker that holds the API key server-side
 // (see proxy/README.md). When this is set, EVERY player gets the real Claude
 // therapist with zero setup. Empty string = disabled.
-export const PROXY_URL = '';
+export const PROXY_URL = 'https://lucas.davidpgourley92.workers.dev/';
 
 export function getClaudeKey() {
   try { return localStorage.getItem(KEY_STORAGE) || ''; } catch { return ''; }
