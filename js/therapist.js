@@ -248,6 +248,11 @@ const REFLECT = [
 const CLAUDE_MODEL = 'claude-haiku-4-5';
 const KEY_STORAGE = 'bumpercrop.claudekey';
 
+// The global brain: a Cloudflare Worker that holds the API key server-side
+// (see proxy/README.md). When this is set, EVERY player gets the real Claude
+// therapist with zero setup. Empty string = disabled.
+export const PROXY_URL = '';
+
 export function getClaudeKey() {
   try { return localStorage.getItem(KEY_STORAGE) || ''; } catch { return ''; }
 }
@@ -292,9 +297,11 @@ ${JSON.stringify({
 }
 
 export class ClaudeBrain {
-  constructor(apiKey, fallback) {
-    this.apiKey = apiKey;
+  // opts: { proxy: url } to use the keyless global worker,
+  //       { key: apiKey } to call Anthropic directly from this device
+  constructor(fallback, opts) {
     this.fallback = fallback;
+    this.opts = opts;
     this.isClaude = true;
   }
 
@@ -317,14 +324,16 @@ export class ClaudeBrain {
         messages.push({ role: 'user', content: text });
       }
 
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+      const url = this.opts.proxy || 'https://api.anthropic.com/v1/messages';
+      const headers = { 'content-type': 'application/json' };
+      if (!this.opts.proxy) {
+        headers['x-api-key'] = this.opts.key;
+        headers['anthropic-version'] = '2023-06-01';
+        headers['anthropic-dangerous-direct-browser-access'] = 'true';
+      }
+      const res = await fetch(url, {
         method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          'x-api-key': this.apiKey,
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
+        headers,
         body: JSON.stringify({
           model: CLAUDE_MODEL,
           max_tokens: 200,
