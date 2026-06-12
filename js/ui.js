@@ -3,6 +3,7 @@
 
 import { State } from './state.js';
 import { SHOP_ITEMS, purchase } from './shop.js';
+import { getClaudeKey, setClaudeKey } from './therapist.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -150,6 +151,26 @@ export const UI = {
     }
     gctx.putImageData(img, 0, 0);
     document.getElementById('grain').style.background = `url(${gcv.toDataURL()})`;
+
+    // the hidden "ai setup" screen (for grown-ups) on the title screen
+    const aisetup = $('aisetup');
+    const aikey = $('aisetup-key');
+    const aistatus = $('aisetup-status');
+    $('aisetup-open').addEventListener('click', () => {
+      aikey.value = getClaudeKey();
+      aistatus.textContent = getClaudeKey() ? '✦ a key is saved — Claude plays Dr. Umbra' : 'no key saved — built-in brain in use';
+      aisetup.classList.remove('hidden');
+    });
+    $('aisetup-save').addEventListener('click', () => {
+      setClaudeKey(aikey.value.trim());
+      aistatus.textContent = aikey.value.trim() ? '✦ saved! Claude now plays Dr. Umbra on this device' : 'no key saved — built-in brain in use';
+    });
+    $('aisetup-clear').addEventListener('click', () => {
+      setClaudeKey('');
+      aikey.value = '';
+      aistatus.textContent = 'key removed — built-in brain in use';
+    });
+    $('aisetup-close').addEventListener('click', () => aisetup.classList.add('hidden'));
 
     // keep the chat panel above the soft keyboard on phones
     if (window.visualViewport) {
@@ -299,6 +320,8 @@ export const UI = {
   // ---------- therapist chat ----------
   openChat(brain) {
     this._brain = brain;
+    document.querySelector('#chathead span').textContent =
+      brain.isClaude ? 'DR. UMBRA — THERAPIST ✦' : 'DR. UMBRA — THERAPIST';
     this.chat.classList.remove('hidden');
     this.chatlog.innerHTML = '';
     // replay the last few remembered exchanges

@@ -123,6 +123,33 @@
   }
   #title button.ghost { background: transparent; color: #d8b24f; border: 1px solid #d8b24f; }
   #title .t-help { font-size: 12px; color: #79817a; line-height: 1.8; margin-top: 18px; max-width: 480px; }
+  #aisetup-open {
+    position: absolute; right: 14px; bottom: 12px; background: none !important; border: none !important;
+    color: #5d655e !important; font-size: 11px !important; letter-spacing: .1em !important;
+    padding: 8px !important; cursor: pointer;
+  }
+  #aisetup {
+    position: fixed; inset: 0; z-index: 45; display: flex; align-items: center; justify-content: center;
+    background: rgba(4,5,7,.8); padding: 16px;
+  }
+  #aisetup-panel {
+    width: min(440px, 100%); background: rgba(16,15,12,.97); border: 1px solid rgba(216,178,79,.4);
+    border-radius: 14px; padding: 22px;
+  }
+  #aisetup-panel h3 { color: #d8b24f; font-size: 15px; letter-spacing: .12em; margin-bottom: 10px; }
+  #aisetup-panel p { font-size: 12.5px; color: #a59d88; line-height: 1.6; margin-bottom: 14px; }
+  #aisetup-key {
+    width: 100%; font-size: 14px; padding: 10px 12px; border-radius: 8px; outline: none;
+    border: 1px solid rgba(255,255,255,.2); background: rgba(255,255,255,.07); color: #eee;
+    margin-bottom: 12px;
+  }
+  #aisetup-row { display: flex; gap: 8px; }
+  #aisetup-row button {
+    font-size: 12.5px; padding: 9px 16px; border-radius: 8px; border: none; cursor: pointer;
+    background: #d8b24f; color: #14130c; font-weight: 600;
+  }
+  #aisetup-row button.ghost2 { background: transparent; color: #b3a883; border: 1px solid rgba(216,178,79,.4); }
+  #aisetup-status { font-size: 12px; color: #8fae84; margin-top: 10px; min-height: 16px; }
 
   /* ---------- book overlay ---------- */
   #book {
@@ -236,6 +263,23 @@
     move: left thumb / WASD &nbsp;·&nbsp; look: drag / mouse &nbsp;·&nbsp; act: tap / E or click &nbsp;·&nbsp; drink: Q<br>
     The house is safe. The fields are not.<br>
     Walk far enough and the day will stop following you.
+  </div>
+  <button id="aisetup-open">⚙ ai setup</button>
+</div>
+
+<div id="aisetup" class="hidden">
+  <div id="aisetup-panel">
+    <h3>🤖 Real-AI Therapist</h3>
+    <p>Paste an Anthropic API key to let <b>Claude</b> (Haiku) play Dr. Umbra for real.
+       The key is stored only on this device. Without a key, the built-in
+       therapist brain is used — the game works fine either way.</p>
+    <input id="aisetup-key" type="password" placeholder="sk-ant-..." autocomplete="off">
+    <div id="aisetup-row">
+      <button id="aisetup-save">save</button>
+      <button id="aisetup-clear" class="ghost2">remove key</button>
+      <button id="aisetup-close" class="ghost2">close</button>
+    </div>
+    <div id="aisetup-status"></div>
   </div>
 </div>
 
