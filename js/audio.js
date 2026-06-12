@@ -66,8 +66,8 @@ export class GameAudio {
   update(dt, fear, sanity) {
     if (!this.ctx || this.ctx.state !== 'running') return;
     const t = this.ctx.currentTime;
-    this.windGain.gain.setTargetAtTime(0.05 + 0.14 * (1 - fear * 0.7), t, 0.4);
-    this.droneGain.gain.setTargetAtTime(fear * 0.17, t, 0.6);
+    this.windGain.gain.setTargetAtTime(0.09 + 0.21 * (1 - fear * 0.6), t, 0.4);
+    this.droneGain.gain.setTargetAtTime(fear * 0.2, t, 0.6);
 
     // sparse whispers deep in the dark
     this._whisperCooldown -= dt;
@@ -175,5 +175,133 @@ export class GameAudio {
     osc.connect(g).connect(this.master);
     osc.start(t);
     osc.stop(t + 0.1);
+  }
+
+  // footsteps: a dull knock on wood, a soft swish on grass
+  step(surface) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this._noiseBuffer(0.12);
+    src.playbackRate.value = 0.85 + Math.random() * 0.3;
+    const filt = ctx.createBiquadFilter();
+    const g = ctx.createGain();
+    if (surface === 'wood') {
+      filt.type = 'lowpass';
+      filt.frequency.value = 320;
+      this._env(g, t, 0.16, 0.004, 0.09);
+      const knock = ctx.createOscillator();
+      knock.type = 'sine';
+      knock.frequency.setValueAtTime(95 + Math.random() * 18, t);
+      const kg = ctx.createGain();
+      this._env(kg, t, 0.1, 0.004, 0.07);
+      knock.connect(kg).connect(this.master);
+      knock.start(t); knock.stop(t + 0.1);
+    } else {
+      filt.type = 'bandpass';
+      filt.frequency.value = 1500 + Math.random() * 700;
+      filt.Q.value = 0.8;
+      this._env(g, t, 0.07, 0.01, 0.1);
+    }
+    src.connect(filt).connect(g).connect(this.master);
+    src.start(t);
+  }
+
+  // the classic two-tone appliance DING!
+  ding() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    for (const [f, d, p] of [[1567, 0, 0.12], [1046, 0.02, 0.1]]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = f;
+      const g = ctx.createGain();
+      this._env(g, t + d, p, 0.005, 1.1);
+      osc.connect(g).connect(this.master);
+      osc.start(t + d);
+      osc.stop(t + d + 1.2);
+    }
+  }
+
+  hum(seconds) {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    osc.type = 'sawtooth';
+    osc.frequency.value = 119;
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 300;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.05, t + 0.15);
+    g.gain.setValueAtTime(0.05, t + seconds - 0.1);
+    g.gain.linearRampToValueAtTime(0.0001, t + seconds);
+    osc.connect(lp).connect(g).connect(this.master);
+    osc.start(t);
+    osc.stop(t + seconds + 0.05);
+  }
+
+  munch() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    for (const d of [0, 0.16]) {
+      const src = ctx.createBufferSource();
+      src.buffer = this._noiseBuffer(0.1);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 700;
+      const g = ctx.createGain();
+      this._env(g, t + d, 0.14, 0.005, 0.08);
+      src.connect(lp).connect(g).connect(this.master);
+      src.start(t + d);
+    }
+  }
+
+  page() {
+    if (!this.ctx) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const src = ctx.createBufferSource();
+    src.buffer = this._noiseBuffer(0.3);
+    const hp = ctx.createBiquadFilter();
+    hp.type = 'highpass';
+    hp.frequency.value = 2400;
+    const g = ctx.createGain();
+    this._env(g, t, 0.06, 0.04, 0.22);
+    src.connect(hp).connect(g).connect(this.master);
+    src.start(t);
+  }
+
+  // a gentle two-note pad that plays underneath dreams
+  startDream() {
+    if (!this.ctx || this._dream) return;
+    const ctx = this.ctx, t = ctx.currentTime;
+    const g = ctx.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(0.055, t + 3);
+    const lp = ctx.createBiquadFilter();
+    lp.type = 'lowpass';
+    lp.frequency.value = 900;
+    lp.connect(g).connect(this.master);
+    const oscs = [];
+    for (const f of [220, 277.2, 330.6]) {
+      const osc = ctx.createOscillator();
+      osc.type = 'sine';
+      osc.frequency.value = f;
+      osc.detune.value = (Math.random() - 0.5) * 8;
+      osc.connect(lp);
+      osc.start(t);
+      oscs.push(osc);
+    }
+    this._dream = { g, oscs };
+  }
+
+  stopDream() {
+    if (!this.ctx || !this._dream) return;
+    const t = this.ctx.currentTime;
+    this._dream.g.gain.setTargetAtTime(0.0001, t, 0.6);
+    const d = this._dream;
+    setTimeout(() => d.oscs.forEach((o) => { try { o.stop(); } catch { } }), 2500);
+    this._dream = null;
   }
 }

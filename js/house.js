@@ -31,6 +31,71 @@ export function mergeGeos(geos) {
   return out;
 }
 
+// --- procedural building textures (painted at boot, no asset files) ---
+function plankTexture(base, jitter, plankPx, grain) {
+  const cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 256;
+  const g = cv.getContext('2d');
+  for (let y = 0; y < 256; y += plankPx) {
+    const l = (Math.random() - 0.5) * jitter;
+    g.fillStyle = shade(base, l);
+    g.fillRect(0, y, 256, plankPx);
+    g.fillStyle = 'rgba(30,24,16,0.45)';
+    g.fillRect(0, y, 256, 1.5);                       // seam between planks
+    for (let i = 0; i < grain; i++) {                 // wood grain streaks
+      g.strokeStyle = `rgba(40,30,18,${0.05 + Math.random() * 0.1})`;
+      g.lineWidth = 0.8;
+      const gy = y + 2 + Math.random() * (plankPx - 3);
+      g.beginPath();
+      g.moveTo(Math.random() * 100, gy);
+      g.lineTo(Math.random() * 100 + 156, gy + (Math.random() * 2 - 1));
+      g.stroke();
+    }
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+function shingleTexture() {
+  const cv = document.createElement('canvas');
+  cv.width = 256; cv.height = 256;
+  const g = cv.getContext('2d');
+  g.fillStyle = '#3a3e44';
+  g.fillRect(0, 0, 256, 256);
+  const row = 26, col = 42;
+  for (let y = 0; y < 256; y += row) {
+    const off = ((y / row) % 2) * (col / 2);
+    for (let x = -col; x < 256 + col; x += col) {
+      g.fillStyle = shade('#41464d', (Math.random() - 0.5) * 18);
+      g.fillRect(x + off + 1, y + 1, col - 2, row - 2);
+    }
+    g.fillStyle = 'rgba(10,12,14,0.6)';
+    g.fillRect(0, y, 256, 2);
+  }
+  const tex = new THREE.CanvasTexture(cv);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+  return tex;
+}
+
+function shade(hex, amt) {
+  const n = parseInt(hex.slice(1), 16);
+  const r = Math.max(0, Math.min(255, (n >> 16) + amt));
+  const g = Math.max(0, Math.min(255, ((n >> 8) & 255) + amt));
+  const b = Math.max(0, Math.min(255, (n & 255) + amt));
+  return `rgb(${r},${g},${b})`;
+}
+
+// stretch a box's UVs so a repeating texture keeps real-world plank density
+function scaleUVs(geo, w, h, d, tile) {
+  const u = Math.max(w, d) / tile;
+  const v = Math.max(h, Math.min(w, d)) / tile;
+  const uv = geo.attributes.uv;
+  for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) * u, uv.getY(i) * v);
+}
+
 const FOOT_X = 6, FOOT_Z = 4.5;       // house footprint half-sizes
 const FLOOR2 = 2.8;                   // second floor height
 // the staircase strip (runs along the north wall, climbing west → east)
@@ -41,13 +106,15 @@ export function buildHouse(scene) {
   scene.add(group);
   const colliders = [];
 
-  // helper: collect boxes per material, optionally registering a collider
-  function bucket(color) {
+  // helper: collect boxes per material, optionally registering a collider.
+  // `tile` (meters per texture repeat) makes plank/shingle textures line up.
+  function bucket(color, map, tile) {
     const geos = [];
     return {
       geos,
       box(w, h, d, x, y, z, opts = {}) {
         const g = new THREE.BoxGeometry(w, h, d);
+        if (tile) scaleUVs(g, w, h, d, tile);
         if (opts.ry) g.rotateY(opts.ry);
         if (opts.rx) g.rotateX(opts.rx);
         g.translate(x, y, z);
@@ -65,8 +132,11 @@ export function buildHouse(scene) {
         g.translate(x, y, z);
         geos.push(g);
       },
-      build(color2) {
-        const mesh = new THREE.Mesh(mergeGeos(geos), new THREE.MeshLambertMaterial({ color: color2 ?? color }));
+      build() {
+        const mesh = new THREE.Mesh(
+          mergeGeos(geos),
+          new THREE.MeshLambertMaterial(map ? { map, color: 0xffffff } : { color })
+        );
         group.add(mesh);
         return mesh;
       },
@@ -74,9 +144,9 @@ export function buildHouse(scene) {
   }
   function addCollider(x0, x1, z0, z1, y0, y1) { colliders.push({ x0, x1, z0, z1, y0, y1 }); }
 
-  const walls = bucket(0xcfc8b8);
-  const floors = bucket(0x7c5f41);
-  const roof = bucket(0x3c4046);
+  const walls = bucket(0, plankTexture('#cdc5b0', 26, 26, 3), 2.4);   // wood siding
+  const floors = bucket(0, plankTexture('#8a6a48', 30, 32, 5), 2.2);  // floorboards
+  const roof = bucket(0, shingleTexture(), 2.6);
   const wood = bucket(0x6e553c);
   const fabric = bucket(0x5a6c60);
   const white = bucket(0xd8d8d2);
@@ -132,13 +202,26 @@ export function buildHouse(scene) {
 
   // ================= furniture, floor 1 =================
   // kitchen (NE corner)
-  white.box(1.9, 0.92, 0.66, 4.95, 0.46, -4.05, { collide: true });             // counter
+  white.box(0.95, 0.92, 0.66, 5.42, 0.46, -4.05, { collide: true });            // counter
   wood.box(1.95, 0.05, 0.7, 4.95, 0.95, -4.05);                                 // counter top
   white.box(0.85, 1.9, 0.8, 5.5, 0.95, -3.0, { collide: true });                // fridge
   const stove = bucket(0x33363b);
   stove.box(0.85, 0.95, 0.7, 3.35, 0.47, -4.03, { collide: true });             // stove
   stove.cyl(0.15, 0.15, 0.03, 3.15, 0.96, -4.1);                                // burners
   stove.cyl(0.15, 0.15, 0.03, 3.55, 0.96, -3.95);
+  // the oven, under the counter — for baking yourself bread
+  stove.box(0.85, 0.92, 0.68, 4.45, 0.46, -4.03, { collide: true });
+  const applianceGlass = new THREE.MeshBasicMaterial({ color: 0x16181c });
+  const ovenWin = new THREE.Mesh(new THREE.PlaneGeometry(0.6, 0.42), applianceGlass);
+  ovenWin.position.set(4.45, 0.5, -3.68);
+  group.add(ovenWin);
+  wood.box(0.55, 0.04, 0.05, 4.45, 0.82, -3.66);                                // oven handle
+  // the microwave, on the counter — for zapping yourself snacks
+  white.box(0.58, 0.36, 0.42, 5.42, 1.16, -4.08);
+  const mwWin = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.24), applianceGlass);
+  mwWin.position.set(5.34, 1.16, -3.86);
+  group.add(mwWin);
+  white.box(0.05, 0.3, 0.04, 5.68, 1.16, -3.88);                                // microwave handle
   // dining table + chairs
   wood.box(1.7, 0.08, 1.0, 3.8, 0.76, 1.6, { collide: true });
   wood.box(0.08, 0.72, 0.08, 3.1, 0.36, 1.2); wood.box(0.08, 0.72, 0.08, 4.5, 0.36, 1.2);
@@ -278,7 +361,10 @@ export function buildHouse(scene) {
   // ================= interaction hotspots =================
   const hotspots = [
     { id: 'bed', x: 3.3, y: FLOOR2, z: 2.6, r: 1.8, label: '🛏  Sleep' },
-    { id: 'stove', x: 3.35, y: 0, z: -3.2, r: 1.7, label: '🍳  Cook a meal' },
+    { id: 'stove', x: 3.35, y: 0, z: -3.2, r: 1.2, label: '🍳  Cook yourself a meal' },
+    { id: 'oven', x: 4.45, y: 0, z: -3.2, r: 1.0, label: '🍞  Bake in the oven' },
+    { id: 'microwave', x: 5.45, y: 0, z: -3.3, r: 1.0, label: '⏲  Microwave a snack' },
+    { id: 'fridge', x: 4.8, y: 0, z: -2.5, r: 0.9, label: '🧃  Grab apple juice' },
     { id: 'shelf', x: -5.0, y: 0, z: -0.5, r: 1.8, label: '📖  Read a book' },
     { id: 'sofa', x: -3.9, y: 0, z: 1.9, r: 1.6, label: '🛋  Rest a while' },
     { id: 'therapist', x: -4.0, y: 0, z: -1.7, r: 2.0, label: '🕯  Talk to the therapist' },
