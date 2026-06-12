@@ -12,6 +12,7 @@ export const CREATURE_DEX = {
   shade: { name: 'The Tall One', emoji: '🌑', hint: 'haunts the 150m mark' },
   grin: { name: 'The Grin', emoji: '😶', hint: 'floats in the deep dark' },
   listener: { name: 'The Listener', emoji: '📡', hint: 'hears footsteps past the 120m mark' },
+  regulars: { name: 'The Regulars', emoji: '🍟', hint: 'dining quietly at the 50m mark' },
   harvester: { name: 'THE HARVESTER', emoji: '🎃', hint: 'waits at the barn, past 300m' },
 };
 
@@ -39,6 +40,7 @@ export const BADGES = {
   koi: { name: 'Mirror Mirror', emoji: '🪞', desc: 'Land the Mirror Koi' },
   digger: { name: 'X Marks the Spot', emoji: '⛏', desc: 'Dig up a number-station cache' },
   statue: { name: 'Living Statue', emoji: '🗿', desc: 'Out-freeze The Listener 3 times' },
+  fries: { name: 'Would You Like Fries', emoji: '🍟', desc: 'Order at WcDonald\'s' },
 };
 
 function mark(list, id) {
@@ -147,6 +149,8 @@ export function initJournal() {
   bus.on('dug', () => awardBadge('digger'));
   bus.on('listenerSpawn', () => mark(State.journal.creatures, 'listener'));
   bus.on('listenerLost', () => { if (State.listenersSurvived >= 3) awardBadge('statue'); });
+  bus.on('wcdSeen', () => mark(State.journal.creatures, 'regulars'));
+  bus.on('ordered', ({ meal }) => { mark(State.journal.mealsMade, meal); awardBadge('fries'); });
 }
 
 export function checkDepthBadges(depth) {

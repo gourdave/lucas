@@ -26,6 +26,7 @@ import { Pond, POND_POS, FISH, rollFish } from './fishing.js';
 import { DigSiteMarker, broadcastAvailable, makeBroadcast, digHud, digOnce } from './digsite.js';
 import { Listener } from './listener.js';
 import { seedForDepth } from './garden.js';
+import { WcDonalds, MENU, EMPLOYEE_LINES } from './wcdonalds.js';
 
 const WALK_SPEED = 4.2;
 const EYE = 1.62;
@@ -78,6 +79,7 @@ const decor = new Decor(scene);
 const pond = new Pond(scene);
 const digMarker = new DigSiteMarker(scene);
 const listenerEnt = new Listener(scene);
+const wcd = new WcDonalds(scene);
 const allHotspots = () => house.hotspots.concat(garden.plotHotspots());
 const dreams = new Dreams();
 const therapist = buildTherapist(scene);
@@ -162,6 +164,7 @@ function interact() {
   else if (id === 'chest') openDailyChest();
   else if (id === 'pond') startFishing();
   else if (id === 'dig') doDig();
+  else if (id === 'wcd') openOrder();
   else if (id.startsWith('plot')) usePlot(+id.slice(4));
 }
 
@@ -199,6 +202,42 @@ function startFishing() {
     } else if (result === 'escaped') {
       UI.toast('It slipped the cage and was gone. Cast again!');
     }
+  });
+}
+
+// ---------- WcDonald's: order at the counter ----------
+// no AI behind the register, by design (Lucas's spec): a response system only
+let lineIdx = Math.floor(Math.random() * EMPLOYEE_LINES.length);
+
+function openOrder() {
+  controls.enabled = false;
+  controls.releaseLock();
+  audio.blip();
+  const opts = Object.entries(MENU).map(([id, m]) => ({
+    value: id, emoji: m.emoji,
+    label: `${m.name} — 🪙${m.price}`,
+    sub: m.sub,
+    button: 'order',
+  }));
+  UI.openPicker('🍟 WCDONALD\'S — MAY WE TAKE YOUR ORDER', opts, (id) => {
+    const m = MENU[id];
+    if (State.money < m.price) {
+      UI.toast('…you pat your pockets. Not enough coins. The employee tilts its smooth head, very slowly, and waits.');
+      controls.enabled = true;
+      return;
+    }
+    State.money -= m.price;
+    const food = State.inventory.food;
+    food[m.meal] = (food[m.meal] || 0) + 1;
+    State.meals++;
+    bus.emit('ordered', { meal: m.meal });
+    audio.coin();
+    audio.ding();
+    UI.setMoney(State.money);
+    UI.setFood(food);
+    lineIdx = (lineIdx + 1) % EMPLOYEE_LINES.length;
+    UI.toast(`${m.emoji} ${EMPLOYEE_LINES[lineIdx]}`, 5200);
+    controls.enabled = true;
   });
 }
 
@@ -895,6 +934,7 @@ window.__pond = pond;
 window.__listener = listenerEnt;
 window.__dig = { makeBroadcast, digOnce, marker: digMarker };
 window.__ui = UI;
+window.__wcd = wcd;
 
 let __frameCount = 0;
 function tick() {
@@ -978,6 +1018,13 @@ function tick() {
   pond.update(dt, world.fear);
   digMarker.update(State.playTime);
   UI.setDig(digHud(player));
+  // WcDonald's: tracking heads, regulars regular-ing, the odd polite munch
+  if (wcd.update(dt, State.playTime, player)) audio.munch();
+  if (!State.flags.sawWcd && wcd.nearBuilding(player)) {
+    State.flags.sawWcd = true;
+    bus.emit('wcdSeen', {});
+    UI.toast('🍟 A fast-food place. Out here. The lights are on, the staff have no faces, and the customers are… eating. Nobody minds you.', 7000);
+  }
   UI.setCrosshair(playing && controls.enabled && !inDream);
 
   // --- expedition: bravery builds outside, loot banks at home ---
@@ -1047,11 +1094,13 @@ function tick() {
       const d2 = (player.x - h.x) ** 2 + (player.z - h.z) ** 2;
       if (d2 < h.r * h.r && d2 < best) { best = d2; currentHotspot = h; }
     }
-    // field "hotspots" — the dock and any active dig site
+    // field "hotspots" — the dock, any active dig site, and the counter
     if (!currentHotspot && pond.near(player)) {
       currentHotspot = { id: 'pond', label: '🎣 fish the dark water' };
     } else if (!currentHotspot && digMarker.near(player)) {
       currentHotspot = { id: 'dig', label: () => `⛏ DIG (${(State.digSite ? State.digSite.taps : 0)}/3)` };
+    } else if (!currentHotspot && wcd.nearCounter(player)) {
+      currentHotspot = { id: 'wcd', label: '🍟 Order at the counter' };
     }
   }
   UI.setPrompt(currentHotspot ? (typeof currentHotspot.label === 'function' ? currentHotspot.label() : currentHotspot.label) : null);

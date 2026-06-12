@@ -12,6 +12,7 @@ import { unlocked } from './progression.js';
 import { seedForDepth } from './garden.js';
 import { eggTierForDepth, EGG_TIERS } from './pets.js';
 import { POND_POS, POND_R } from './fishing.js';
+import { WCD_POS, WCD_R } from './wcdonalds.js';
 
 const CHUNK = 40;
 const GRID = 5;
@@ -419,6 +420,7 @@ export class World {
       if (Math.hypot(x, z) < 19) used = false;                    // the yard clearing
       if (Math.abs(x) < 2.6 && z > 0 && z < 75) used = false;     // the dirt path
       if (Math.hypot(x - POND_POS.x, z - POND_POS.z) < POND_R + 2.4) used = false; // the pond
+      if (Math.hypot(x - WCD_POS.x, z - WCD_POS.z) < WCD_R) used = false;          // the restaurant
       const s = used ? 0.75 + rnd() * 0.6 : 0.0001;   // chest-high at most
       _pos.set(x, 0, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
@@ -437,6 +439,7 @@ export class World {
       if (Math.hypot(x, z) < 16) used = false;
       if (Math.abs(x) < 2.4 && z > 0 && z < 75) used = false;
       if (Math.hypot(x - POND_POS.x, z - POND_POS.z) < POND_R + 1.5) used = false;
+      if (Math.hypot(x - WCD_POS.x, z - WCD_POS.z) < WCD_R - 1) used = false;
       const s = used ? 0.7 + rnd() * 0.9 : 0.0001;
       _pos.set(x, 0, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
@@ -452,7 +455,8 @@ export class World {
       const idx = slot * TREE_N + i;
       const x = bx + i * (CHUNK / TREE_N) + rnd() * 5;
       const z = bz + rnd() * 2.5;
-      const used = hasTrees && Math.hypot(x, z) > 26;
+      const used = hasTrees && Math.hypot(x, z) > 26 &&
+        Math.hypot(x - WCD_POS.x, z - WCD_POS.z) > WCD_R + 3;
       const s = used ? 0.8 + rnd() * 0.8 : 0.0001;
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
       _pos.set(x, 1.3 * s, z); _scl.set(s, s, s);
@@ -467,7 +471,9 @@ export class World {
     for (let i = 0; i < BUSH_N; i++) {
       const idx = slot * BUSH_N + i;
       const x = bx + rnd() * CHUNK, z = bz + rnd() * CHUNK;
-      const used = rnd() < 0.55 && Math.hypot(x, z) > 22;
+      const used = rnd() < 0.55 && Math.hypot(x, z) > 22 &&
+        Math.hypot(x - WCD_POS.x, z - WCD_POS.z) > WCD_R &&
+        Math.hypot(x - POND_POS.x, z - POND_POS.z) > POND_R;
       const s = used ? 0.5 + rnd() * 0.9 : 0.0001;
       _pos.set(x, 0.45 * s, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);

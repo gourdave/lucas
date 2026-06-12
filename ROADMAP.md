@@ -12,6 +12,11 @@
   buried-cache coordinates, dig it up, survive the walk home (25% of caches
   are alarmed) · THE LISTENER — first rule-based entity: it only moves when
   you move; freeze 4s to shake it (can't be outrun, light passes through it)
+- v8.1 WcDONALD'S (Phase J, designed by Lucas): a liminal fast-food joint at
+  the 50m mark — faceless white mannequin employees in uniform running a
+  scripted response system (NO ai, per spec), a 4-item menu paid in coins,
+  and The Regulars: monsters at the tables who just eat their food and mind
+  their own business. Parody name on purpose (trademark safety).
 
 ## NEXT UP (explicitly queued by David, 2026-06-12)
 - **Graphics & texture improvement pass** — the next work item after v8
