@@ -90,9 +90,11 @@ export const Expedition = {
     if (e.active && inYard) this.bank();
   },
 
-  bank() {
+  // rate < 1 = banking at a campfire: safe and early, but a 30% haircut —
+  // carrying it all the way home keeps the full Bravery payout
+  bank(rate = 1) {
     const e = State.exp;
-    const mult = this.braveryMult();
+    const mult = +(this.braveryMult() * rate).toFixed(1);
     const banked = Math.round(e.coins * mult);
     const items = e.items.slice();
     if (banked > 0) State.money += banked;

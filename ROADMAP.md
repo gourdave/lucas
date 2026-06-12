@@ -38,6 +38,16 @@
   and drops pixel ratio — game identical). Researched against current
   three.js mobile guidance: stayed Lambert, no post-processing chain.
 
+- v11 the deep-field update (Phase L): THE CORN MAZE at ~250m (fixed
+  seeded layout, real collision, daily chest at the heart, grin watchers
+  that sink away, signpost near home) · THE BORROWER — a knee-high thief
+  that smells 8+ pending coins past 100m, snatches 40%, and BOLTS; light
+  makes it drop everything, and if it escapes it stashes the coins under
+  a beacon (nothing is ever lost) · CAMP KITS at the stall (120c, max 3):
+  place a campfire safe-circle in the deep fields — nothing hunts you in
+  the firelight, calm regenerates, and the fire banks loot at 70% (carry
+  it home for full Bravery instead — your call, that's the game)
+
 ## NEXT UP
 - (nothing queued — awaiting the next batch from Lucas/David)
 
@@ -46,8 +56,7 @@ Nothing here gets forgotten. Built items move to "Shipped".
 
 ### Locations (the long arc — one per release)
 - ✅ The Pond (~60m, moved from 145m on David's request — fish in peace) *(v8)*
-- The Corn Maze (~250m) — sightline-blocking walls, chest at the center,
-  entities patrol the lanes
+- ✅ The Corn Maze (~250m) *(v11)*
 - The Radio Tower (~400m) — climb for a one-time view + map/compass upgrade
 - The Storm Cellar (~500m) — trapdoor mini-dungeon, best loot density,
   scariest place in the game
@@ -56,7 +65,7 @@ Nothing here gets forgotten. Built items move to "Shipped".
 
 ### Entities with learnable rules (Doors-style)
 - ✅ The Listener — moves only when you move *(v8)*
-- The Borrower — steals from your pending bag and runs; chase it to recover
+- ✅ The Borrower *(v11)*
 - The Scarecrow That Wasn't There — closer every time you look away;
   stare it down to win
 
@@ -69,9 +78,7 @@ Nothing here gets forgotten. Built items move to "Shipped".
 ### Home & systems
 - Restoration Board (Stardew community center): donate item sets to unboard
   rooms — attic telescope, guest room, etc.
-- Camp kits: buy at the stall, place in the deep fields → mini safe zone
-  (sanity regen, partial-rate banking, max 2–3) — "push the bubble of home
-  outward, one risky trip at a time"
+- ✅ Camp kits *(v11)*
 - Crop mutations: rare golden/glittering crops worth 10×, journal entries
 - Pet levels: XP while following you, abilities strengthen, one evolution
 - Fish cooking: banked fish become stove meals (fish dinner = big calm)
