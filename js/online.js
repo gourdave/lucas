@@ -187,7 +187,7 @@ export class Online {
     const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true, fog: false });
     const spr = new THREE.Sprite(mat);
     spr.scale.set(3.2, 0.7, 1);
-    spr.position.y = 3.6;
+    spr.position.y = 2.95;
     p.bubbleSprite = spr;
     p.mesh?.add(spr);
     if (p.labelSprite) p.labelSprite.visible = false;
@@ -232,26 +232,26 @@ export class Online {
     this.onPeerChange?.(0);
   }
 
+  // friends look like the game's faceless white mannequins (the WcDonald's
+  // employees / arcade attendant) — but with no uniform at all. Just a plain
+  // white figure, like a statue. (Lucas's design.) Per-player colour lives on
+  // the name tag, the minimap dot and the chat bubble, never the body.
   _makeMesh(colorHex, name) {
-    const col = new THREE.Color(colorHex || '#7ec8f0');
-    const mat = (op) => new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: op, fog: true });
     const grp = new THREE.Group();
+    // solid + faintly self-lit so it reads in the dark fields; fog on by default
+    const white = new THREE.MeshLambertMaterial({ color: 0xe9e6df, emissive: 0x16140f });
 
-    const body = new THREE.Mesh(new THREE.BoxGeometry(0.46, 1.05, 0.22), mat(0.72));
-    body.position.y = 1.3;
-    const head = new THREE.Mesh(new THREE.SphereGeometry(0.27, 8, 6), mat(0.65));
-    head.position.y = 2.18;
+    const legs = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.8, 0.24), white);
+    legs.position.y = 0.4;
+    const torso = new THREE.Mesh(new THREE.CapsuleGeometry(0.24, 0.55, 4, 8), white);
+    torso.position.y = 1.25;
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.21, 12, 10), white);  // perfectly smooth. no face.
+    head.position.y = 1.85;
+    grp.add(legs, torso, head);
 
-    const eyeMat = new THREE.MeshBasicMaterial({ color: 0xffffff, fog: false });
-    for (const ex of [-0.1, 0.1]) {
-      const eye = new THREE.Mesh(new THREE.SphereGeometry(0.052, 6, 4), eyeMat);
-      eye.position.set(ex, 2.22, 0.23);
-      grp.add(eye);
-    }
-    grp.add(body, head);
-
+    // the label is added LAST — _addPeer grabs the last child as the name tag
     const label = this._makeLabel(name, colorHex);
-    label.position.y = 2.85;
+    label.position.y = 2.45;
     grp.add(label);
 
     return grp;
