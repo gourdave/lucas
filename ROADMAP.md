@@ -57,6 +57,12 @@
   arrive as raw fish in your pocket; the stove turns them into fish
   dinner (50 food, 25 calm)
 
+- v12.1 THE MINIMAP (Luke's request): a little north-up compass-glass,
+  bottom-right — you in the middle, landmarks color-coded (home, pond,
+  WcDonald's, barn, maze, your camps), and anything time-sensitive
+  pulsing (dig sites, lost bags, Borrower stashes). Dims with dread,
+  hides in dreams. Canvas 2D at ~7fps — zero GPU cost.
+
 ## NEXT UP
 - (nothing queued — awaiting the next batch from Lucas/David)
 

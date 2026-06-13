@@ -26,7 +26,7 @@ import { Pond, POND_POS, FISH, rollWithBait, River, BaitShack, FISH_SHOP, SHACK_
 import { DigSiteMarker, broadcastAvailable, makeBroadcast, digHud, digOnce } from './digsite.js';
 import { Listener } from './listener.js';
 import { seedForDepth } from './garden.js';
-import { WcDonalds, MENU, EMPLOYEE_LINES } from './wcdonalds.js';
+import { WcDonalds, MENU, EMPLOYEE_LINES, WCD_POS } from './wcdonalds.js';
 import { pinMystery, solveMystery, MYSTERIES, buildBoard, buildCarving, Gnome, WindowFigure } from './mysteries.js';
 import { todayStr } from './state.js';
 import { Maze, MAZE_POS, mazeChestAvailable } from './maze.js';
@@ -1119,6 +1119,25 @@ async function blackout() {
   busy = false;
 }
 
+// ---------- the minimap ----------
+// Luke's request: a little map. North-up, you in the middle, landmarks and
+// anything time-sensitive (dig sites, lost bags, stashes) pulsing.
+let mapT = 0;
+function mapMarkers() {
+  const m = [
+    { x: 0, z: 0, color: '#e8d49a' },                       // home
+    { x: POND_POS.x, z: POND_POS.z, color: '#5aa8d8' },     // the pond
+    { x: WCD_POS.x, z: WCD_POS.z, color: '#f2b32a' },       // WcDonald's
+    { x: BARN_POS.x, z: BARN_POS.z, color: '#e85530' },     // the barn
+    { x: MAZE_POS.x, z: MAZE_POS.z, color: '#7ec27e' },     // the corn maze
+  ];
+  for (const c of State.camps) m.push({ x: c.x, z: c.z, color: '#ffa040' });
+  if (State.digSite) m.push({ x: State.digSite.x, z: State.digSite.z, color: '#b8ffd0', pulse: true });
+  if (State.lostBag) m.push({ x: State.lostBag.x, z: State.lostBag.z, color: '#ffe9a0', pulse: true });
+  if (State.borrowerStash) m.push({ x: State.borrowerStash.x, z: State.borrowerStash.z, color: '#ffd96a', pulse: true });
+  return m;
+}
+
 // ---------- the loop ----------
 const clock = new THREE.Clock();
 const _warmWindow = new THREE.Color(0xffc878);
@@ -1177,6 +1196,7 @@ function tick() {
   State.playTime += dt;
 
   if (inDream) {
+    UI.setMapVisible(false);   // no maps in dreams
     controls.update();   // dreams are playable now — feed them your moves
     const alive = dreams.update(dt, controls, () => audio.chime());
     UI.setDreamHud(dreams.hudText());
@@ -1383,6 +1403,14 @@ function tick() {
   while (rel > Math.PI) rel -= Math.PI * 2;
   while (rel < -Math.PI) rel += Math.PI * 2;
   UI.setHome(State.distance, rel);
+
+  // --- the minimap (redrawn ~7 times a second; canvas 2D, off the GPU path) ---
+  mapT -= dt;
+  if (mapT <= 0) {
+    mapT = 0.15;
+    UI.setMapVisible(true);
+    UI.drawMap(player.x, player.z, controls.yaw, mapMarkers(), world.fear);
+  }
 
   // --- audio mix ---
   audio.update(dt, world.fear, State.sanity);

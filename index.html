@@ -186,6 +186,13 @@
   }
   #campbtn:disabled { opacity: .4; cursor: default; }
 
+  #minimap {
+    position: fixed; right: calc(12px + env(safe-area-inset-right));
+    bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 9;
+    pointer-events: none; border-radius: 50%;
+    border: 1px solid rgba(216,178,79,.35); background: rgba(8,10,14,.4);
+  }
+
   /* ---------- interact prompt ---------- */
   #prompt {
     position: fixed; bottom: calc(16% + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
@@ -381,6 +388,7 @@
   </div>
 </div>
 
+<canvas id="minimap" width="124" height="124" class="hidden"></canvas>
 <button id="prompt" class="hidden"></button>
 <div id="bossbar" class="hidden"><span id="bossname">🎃 THE HARVESTER</span><div class="bar" style="width:220px"><div id="bossfill"></div></div></div>
 <div id="crosshair" class="hidden"></div>
