@@ -38,6 +38,7 @@ import { Gate, GATE_POS } from './gate.js';
 import { Arcade, SPAWN as ARCADE_SPAWN, CABINETS, TASKS, rollTasks, markTask, exitOpen } from './arcade.js';
 import { ensurePlayDay } from './progression.js';
 import { Online } from './online.js';
+import { startStats } from './stats.js';
 
 const WALK_SPEED = 4.2;
 const EYE = 1.62;
@@ -216,6 +217,7 @@ function startGame(fromSave) {
   UI.setPetsButton(unlocked('pets'));
   playing = true;
   controls.enabled = true;
+  startStats(() => playing);   // anonymous usage heartbeats
   if (State.online.enabled) {
     online.connect(scene, State.online.code || 'FIELDS');
     online.onMsg = (name, text, color) => UI.addFriendMsg(name, text, color);
