@@ -85,11 +85,33 @@
   banked. The task list re-rolls; the world goes on FOREVER, exactly as
   Lucas said. (endings counter tracks how many times you've cleared it.)
 
-## NEXT UP — decided by Lucas (2026-06-13, via text):
-1. **ONLINE MODE** ("can there be online mode… like servers") — David
-   approved building it (2026-06-13): "just his close friends anyway,
-   I'm not marketing it." Build the friends-scale version. (David also
-   said: keep the ghost-mode / live-coop options below saved for later.)
+- v15/v16 ONLINE MODE (Phase P, approved by David 2026-06-13: "just his
+  close friends anyway, I'm not marketing it"): friends-scale LIVE presence
+  through the existing Durable Object — share a room code, up to 8 friends
+  land in the same world as glowing ghost avatars with name tags + minimap
+  dots. FRIEND CHAT (the old "no chat ever" rule was lifted for friends-only
+  rooms): auto-generated names only (COPPA-clean), control-chars stripped,
+  never stored, and a profanity filter both client-side (js/profanity.js)
+  and server-side (v16, the Durable Object enforces it so a hacked client
+  can't bypass it). Anonymous usage stats heartbeat to the worker.
+
+- v17 THE STORM CELLAR (Phase Q, ~500m): a steel bulkhead in the wheat
+  (signpost near home points the way) opens onto concrete steps down into
+  the dark UNDER the fields — the richest loot on the level. Searchable
+  supply crates (once a day each) + a daily DEEP CHEST (180–270 pending
+  coins + a guaranteed Midnight Egg + stardust). Lit by a few flickering
+  bulbs. THE DWELLER lives in the dark: a learnable-rule entity that
+  advances through shadow but CANNOT enter the light — stay in the bulbs,
+  and a flare shot blasts it back to its lair. No death: if it catches you
+  (or your calm bottoms out) the cellar ejects you to the surface and your
+  loot drops as a recoverable bag right by the doors. Badges: Deep Cellar
+  (open the chest), Light Keeper (climb out after the Dweller woke).
+
+## NEXT UP — the location arc continues:
+1. **THE OTHER HOUSE (~700m, ENDGAME)** — an exact copy of your house with
+   the lights on, slightly wrong inside, legendary chest upstairs. (Online
+   mode shipped v15/16; Storm Cellar shipped v17. David parked ghost-mode /
+   live-coop refinements for later.)
 
 ## Multiplayer feasibility note (researched constraints, 2026-06-13)
 - Full live co-op = WebSocket relay via the existing Durable Object —
@@ -110,8 +132,8 @@ Nothing here gets forgotten. Built items move to "Shipped".
 - ✅ The Pond (~60m, moved from 145m on David's request — fish in peace) *(v8)*
 - ✅ The Corn Maze (~250m) *(v11)*
 - ✅ The Radio Tower *(v13)*
-- The Storm Cellar (~500m) — trapdoor mini-dungeon, best loot density,
-  scariest place in the game
+- ✅ The Storm Cellar (~500m) — trapdoor mini-dungeon, best loot density,
+  scariest place in the game *(v17)*
 - The Other House (~700m, ENDGAME) — an exact copy of your house with the
   lights on, slightly wrong inside, legendary chest upstairs
 

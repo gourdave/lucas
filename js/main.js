@@ -35,6 +35,7 @@ import { Camps, CAMP_RATE, MAX_CAMPS } from './camps.js';
 import { Tower, TOWER_POS, TOWER_TOP } from './tower.js';
 import { Scarecrow } from './scarecrow.js';
 import { Gate, GATE_POS } from './gate.js';
+import { Cellar, CELLAR_POS, CELLAR_SPAWN, cellarChestAvailable } from './cellar.js';
 import { Arcade, SPAWN as ARCADE_SPAWN, CABINETS, TASKS, rollTasks, markTask, exitOpen } from './arcade.js';
 import { ensurePlayDay } from './progression.js';
 import { Online } from './online.js';
@@ -103,6 +104,7 @@ const camps = new Camps(scene);
 const tower = new Tower(scene);
 const scarecrowEnt = new Scarecrow(scene);
 const gate = new Gate(scene);
+const cellar = new Cellar(scene);
 const arcade = new Arcade(scene);
 const gnome = new Gnome(scene);
 const windowFigure = new WindowFigure(scene);
@@ -263,6 +265,10 @@ function interact() {
   else if (id === 'tower') climbTower();
   else if (id === 'towerdown') climbDown();
   else if (id === 'gate') tryGate();
+  else if (id === 'cellardoor') enterCellar();
+  else if (id === 'cellarladder') exitCellar(false);
+  else if (id === 'cellarchest') openCellarChest();
+  else if (id === 'cellarcrate') searchCellarCrate();
   else if (id.startsWith('cab:')) playCabinet(id.slice(4));
   else if (id === 'slushie') drinkSlushie();
   else if (id === 'token') grabToken();
@@ -434,6 +440,7 @@ function campFireAction() {
 
 // ---------- the radio tower ----------
 let onTower = false;
+let inCellar = false;   // true while down in the storm cellar (drives danger + light rules)
 
 async function climbTower() {
   busy = true;
@@ -493,6 +500,86 @@ async function tryGate() {
   } else {
     UI.toast('🕹 Level 3999. The machines remember you.', 4000);
   }
+}
+
+// ---------- the storm cellar (~500m) ----------
+async function enterCellar() {
+  busy = true;
+  controls.enabled = false;
+  controls.releaseLock();
+  UI.setPrompt(null);
+  audio.blip();
+  await UI.fade(1, 1.2);
+  cellar.reset();
+  player.set(CELLAR_SPAWN.x, 0, CELLAR_SPAWN.z);
+  controls.yaw = Math.PI;   // face deeper, into the dark
+  controls.pitch = 0;
+  await UI.fade(0, 1.3);
+  controls.enabled = true;
+  busy = false;
+  if (!State.flags.descendedCellar) {
+    State.flags.descendedCellar = true;
+    addXp(70);
+    save();
+    UI.toast('🚪 THE STORM CELLAR. Concrete steps down under the fields — old shelves, older air, the best loot on the level. But the dark down here doesn\'t like company. Stay in the bulbs.', 9500);
+  } else {
+    UI.toast('🪜 Down into the dark again. The bulbs still hum. Mostly.', 4200);
+  }
+}
+
+// climb out (caught=false) or get dragged out by the Dweller (caught=true)
+async function exitCellar(caught) {
+  busy = true;
+  controls.enabled = false;
+  controls.releaseLock();
+  UI.setPrompt(null);
+  const woke = cellar.dwellerWoke;
+  if (caught) { audio.sting(); UI.flash(); shake = 0.7; State.blackouts++; }
+  else audio.blip();
+  await UI.fade(1, caught ? 1.6 : 1.1);
+  if (caught) {
+    // your loot spills by the doors up top — recoverable, never lost underground
+    const hadLoot = Expedition.pendingCount() > 0;
+    Expedition.dropBag({ x: CELLAR_POS.x, z: CELLAR_POS.z });
+    State.sanity = Math.max(50, State.sanity);
+    if (hadLoot) setTimeout(() => UI.toast('🎒 Your bag spilled by the cellar doors — grab it before you head home!', 6000), 1800);
+  }
+  player.set(CELLAR_POS.x + 1.6, 0, CELLAR_POS.z + 1.6);
+  controls.yaw = Math.atan2(-(CELLAR_POS.x), -(CELLAR_POS.z));   // roughly toward home
+  controls.pitch = 0;
+  await UI.fade(0, 1.3);
+  controls.enabled = true;
+  busy = false;
+  if (caught) {
+    UI.toast('🕯 The dark folds over you… and spits you out at the doors, blinking in the grey daylight. You\'re okay. You\'re always okay.', 6800);
+  } else {
+    UI.toast('🪜 Up the steps, back into the open air.', 3400);
+    if (woke) { bus.emit('dwellerEscaped', {}); }
+  }
+}
+function caughtInCellar() { if (!busy) exitCellar(true); }
+
+function openCellarChest() {
+  const reward = cellar.openChest();
+  if (!reward) { UI.toast('🧰 The deep chest is bare. It fills again overnight, when no one is looking.'); return; }
+  audio.fanfare();
+  Expedition.addCoins(reward.coins);
+  Expedition.addItem({ kind: 'egg', tier: reward.eggTier, mult: 3 });
+  State.stardust += reward.stardust;
+  bus.emit('cellarChest', { coins: reward.coins });
+  addXp(70);
+  UI.toast(`🧰 THE DEEP CHEST! +🪙${reward.coins} pending + a ${EGG_TIERS[reward.eggTier].name} + ${reward.stardust}✨. Now carry it back to the light — and all the way home.`, 8500);
+  save();
+}
+
+function searchCellarCrate() {
+  const r = cellar.searchCrate(player);
+  if (!r) { UI.toast('📦 Empty — you already went through this one today.'); return; }
+  audio.coin();
+  Expedition.addCoins(r.coins);
+  if (r.item) Expedition.addItem(r.item);
+  UI.toast(`📦 +🪙${r.coins} pending${r.item ? ` + ${r.itemLabel}` : ''}. The shelves remember every hand that's searched them.`, 5000);
+  save();
 }
 
 // ---------- inside Level 3999 ----------
@@ -877,6 +964,9 @@ function fire() {
       UI.toast('Your light passes straight through it. (It isn\'t really there. RUN HOME.)');
     }
   }
+
+  // down in the cellar, a flare is a fistful of daylight — it blasts the Dweller back
+  if (inCellar) cellar.flareBurst();
 }
 
 bus.on('monsterKilled', ({ coins }) => {
@@ -1416,6 +1506,7 @@ function mapMarkers() {
     { x: TOWER_POS.x, z: TOWER_POS.z, color: '#ff5a5a' },   // the radio tower
     { x: GATE_POS.x, z: GATE_POS.z, color: '#f0ead8' },     // THE DOOR (~320m)
   ];
+  if (State.flags.sawCellar) m.push({ x: CELLAR_POS.x, z: CELLAR_POS.z, color: '#c08a4a' });  // storm cellar
   for (const c of State.camps) m.push({ x: c.x, z: c.z, color: '#ffa040' });
   if (State.digSite) m.push({ x: State.digSite.x, z: State.digSite.z, color: '#b8ffd0', pulse: true });
   if (State.lostBag) m.push({ x: State.lostBag.x, z: State.lostBag.z, color: '#ffe9a0', pulse: true });
@@ -1454,6 +1545,8 @@ window.__camps = camps;
 window.__placeCamp = placeCamp;
 window.__scarecrow = scarecrowEnt;
 window.__tower = tower;
+window.__cellar = cellar;
+window.__enterCellar = enterCellar;
 
 // auto-quality: if a phone can't hold ~20fps for a while, quietly shed the
 // mood layers (clouds, ground fog) and drop the pixel ratio. game unchanged.
@@ -1510,8 +1603,9 @@ function tick() {
     const out = house.collide(player.x, player.z, player.x + dx, player.z + dz, player.y);
     const out2 = maze.collide(player.x, player.z, out.x, out.z);
     const out3 = arcade.collide(player.x, player.z, out2.x, out2.z);
-    player.x = out3.x;
-    player.z = out3.z;
+    const out4 = cellar.collide(player.x, player.z, out3.x, out3.z);
+    player.x = out4.x;
+    player.z = out4.z;
     stillTime = 0;
     // walking bob + a footstep at each end of the sway
     walkPhase += dt * 7.2;
@@ -1561,11 +1655,21 @@ function tick() {
   // a campfire's circle counts as home — and so does all of Level 3999
   const inCamp = camps.inCamp(player);
   const inArcade = arcade.inside(player);
-  const safe = inYard || inCamp || inArcade;
+  inCellar = cellar.inside(player);
+  const safe = inYard || inCamp || inArcade || inCellar;   // the cellar keeps surface things out
   world.lowFog = inArcade;
   arcade.update(dt, State.playTime, player);
   if (inArcade) audio.startArcade();
   else audio.stopArcade();
+  // the storm cellar: flicker the bulbs, advance the Dweller through the dark
+  {
+    const ev = cellar.update(dt, State.playTime, player, controls.enabled && inCellar);
+    if (ev.woke) {
+      audio.sting();
+      UI.toast('🕯 A bulb dies with a tick. Down in the dark, something unfolds and stands up. It can\'t come into the light. DON\'T leave the light.', 8500);
+    }
+    if (ev.caught) caughtInCellar();
+  }
   if (controls.enabled) {
     creatures.update(dt, player, camera, world.fear, safe, stillTime);
     monsters.update(dt, player, safe);
@@ -1582,6 +1686,11 @@ function tick() {
   if (!State.flags.sawMaze && maze.inMazeArea(player)) {
     State.flags.sawMaze = true;
     UI.toast('🌽 THE CORN MAZE. The walls are taller than anything should grow. Something glows at its heart. You cannot see what is coming.', 7000);
+  }
+  if (!State.flags.sawCellar && !inCellar && cellar.nearArea(player)) {
+    State.flags.sawCellar = true;
+    save();
+    UI.toast('🚪 A pair of steel bulkhead doors, half-swallowed by the wheat. A storm cellar. Warm light leaks from the seam — something\'s still on down there.', 7500);
   }
   pond.update(dt, world.fear);
   digMarker.update(State.playTime);
@@ -1622,7 +1731,7 @@ function tick() {
   // --- danger systems ---
   if (!inDream) {
     boss.update(dt, player, monsters);
-    harvestNight.update(dt, State.distance, inYard || inArcade);
+    harvestNight.update(dt, State.distance, inYard || inArcade || inCellar);
     world.harvestNight = harvestNight.active;
     monsters.frenzy = harvestNight.active;
     monsters.cartNoise = State.ride === 'cart' && !inYard;
@@ -1653,6 +1762,10 @@ function tick() {
   let delta = 0;
   if (inside) delta += 3.0;
   else if (inArcade) delta += 3.0;     // the calmest place on the level
+  else if (inCellar) {                 // the cellar is never calm: light holds, the dark gnaws
+    delta += cellar.litAt(player) ? -0.4 : -3.2;
+    if (cellar.dwellerWoke && !cellar.litAt(player)) delta -= 2.0;
+  }
   else if (inYard) delta += 1.6;
   else if (inCamp) delta += 2.2;       // the fire keeps the dark honest
   else {
@@ -1662,7 +1775,7 @@ function tick() {
   if (State.hunger <= 0) delta -= 1.2;
   else if (State.hunger < 25) delta -= 0.5;
   State.sanity = THREE.MathUtils.clamp(State.sanity + delta * dt, 0, State.maxSanity);
-  if (State.sanity <= 0 && !busy) blackout();
+  if (State.sanity <= 0 && !busy) { if (inCellar) caughtInCellar(); else blackout(); }
 
   // --- nearest hotspot prompt ---
   currentHotspot = null;
@@ -1692,6 +1805,17 @@ function tick() {
         currentHotspot = { id: 'exit3999', label: () => exitOpen() ? '🚪 EXIT — THE TRUE ENDING' : '🚪 EXIT (locked)' };
       }
     }
+    // inside the storm cellar — ladder out, deep chest, searchable crates
+    if (!currentHotspot && cellar.inside(player)) {
+      if (cellar.nearLadder(player)) {
+        currentHotspot = { id: 'cellarladder', label: '🪜 Climb back up' };
+      } else if (cellar.nearChest(player)) {
+        currentHotspot = { id: 'cellarchest', label: cellarChestAvailable() ? '🧰 OPEN THE DEEP CHEST' : '🧰 Deep chest (empty today)' };
+      } else {
+        const ci = cellar.nearCrate(player);
+        if (ci >= 0) currentHotspot = { id: 'cellarcrate', label: cellar.crateSearched(ci) ? '📦 Crate (already searched)' : '📦 Search the crate' };
+      }
+    }
     // field "hotspots" — the dock, any active dig site, and the counter
     if (!currentHotspot && pond.near(player)) {
       currentHotspot = { id: 'pond', label: '🎣 fish the dark water' };
@@ -1714,6 +1838,8 @@ function tick() {
       currentHotspot = { id: 'tower', label: '🪜 Climb the radio tower' };
     } else if (!currentHotspot && gate.near(player)) {
       currentHotspot = { id: 'gate', label: '🚪 Try the door' };
+    } else if (!currentHotspot && cellar.near(player)) {
+      currentHotspot = { id: 'cellardoor', label: '🚪 Open the storm cellar' };
     }
   }
   UI.setPrompt(currentHotspot ? (typeof currentHotspot.label === 'function' ? currentHotspot.label() : currentHotspot.label) : null);
@@ -1734,8 +1860,8 @@ function tick() {
   mapT -= dt;
   if (mapT <= 0) {
     mapT = 0.15;
-    UI.setMapVisible(!inArcade);   // Level 3999 doesn't appear on maps
-    if (!inArcade) {
+    UI.setMapVisible(!inArcade && !inCellar);   // Level 3999 + the cellar are off-map
+    if (!inArcade && !inCellar) {
       // climbing the tower once widens the glass forever
       UI.drawMap(player.x, player.z, controls.yaw, mapMarkers(), world.fear,
         State.flags.towerClimbed ? 280 : 170, online.peerDots());

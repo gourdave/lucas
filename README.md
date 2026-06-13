@@ -35,6 +35,12 @@ as long as you stay close to home.
 - **The Crop Exchange** — a scarecrow-run stall by the front gate. Spend coins
   on calm bars, new recipes (golden stew, wheat cookies), bigger calm bars,
   and better guns (Lantern Rifle, Dawn Cannon).
+- **The Storm Cellar** — a pair of steel bulkhead doors out around the 500m
+  mark hide the best loot on the level: supply crates and a daily deep chest.
+  But something lives in the dark down there. It only moves through shadow and
+  **can't come into the light** — stay in the bulbs, fire a flare to blast it
+  back, and carry your loot up to the daylight. (You can't die. If it catches
+  you, the cellar puts you back on the surface and your bag's by the doors.)
 - **Almond water** is hidden in the far fields. Drink it when the edges of
   your eyes go dark.
 - You cannot die. If the dark catches up with you, the fields carry you home.

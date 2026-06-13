@@ -40,6 +40,7 @@ export const State = {
   campKits: 0,          // unplaced kits in your pack
   borrowerStash: null,  // { x, z, coins } — where the Borrower dropped your loot
   arcade: { tasks: [], done: [], endings: 0 },   // Level 3999 escape checklist
+  cellar: { chestDay: '', cratesDay: '', crates: [] },  // storm cellar daily loot
   online: { enabled: false, code: 'FIELDS' },      // friends-mode: connect on game start; code = room
   lbName: '',           // auto-generated leaderboard name
   bossKills: 0,
@@ -123,6 +124,7 @@ export function load() {
     State.campKits ??= 0;
     State.borrowerStash ??= null;
     State.arcade ??= { tasks: [], done: [], endings: 0 };
+    State.cellar ??= { chestDay: '', cratesDay: '', crates: [] };
     State.online ??= { enabled: false, code: 'FIELDS' };
     State.online.code ??= 'FIELDS';
     State.lbName ??= '';
