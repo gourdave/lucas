@@ -59,11 +59,15 @@ export default {
     // different named instance, so the two never share storage. We accept the
     // ROOM binding if it exists, otherwise fall back to the LB binding (both
     // point at the same class, so either works).
+    // The room code from ?code= determines which DO instance (room) you land in —
+    // everyone sharing the same code shares a room. Different code → different room.
     if (new URL(request.url).pathname === '/room') {
       const ns = env.ROOM || env.LB;
       if (!ns) return new Response(JSON.stringify({ error: 'room not configured' }), { status: 503, headers: cors });
       if (!allowed) return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: cors });
-      const stub = ns.get(ns.idFromName('room-main'));
+      const rawCode = new URL(request.url).searchParams.get('code') || 'FIELDS';
+      const code = rawCode.replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase() || 'FIELDS';
+      const stub = ns.get(ns.idFromName('room-' + code));
       return stub.fetch(request);
     }
     // friendly status page — lets you verify the worker by visiting its URL
@@ -243,10 +247,19 @@ export class Leaderboard {
       for (const s of this.ctx.getWebSockets()) {
         if (s !== ws) try { s.send(payload); } catch { /* stale */ }
       }
+    } else if (data.type === 'chat') {
+      // relay chat to everyone else in the room; strip control chars, cap at 140
+      const text = String(data.text || '').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 140);
+      if (text.trim()) {
+        const payload = JSON.stringify({ type: 'chat', id: meta.id, name: meta.name, text });
+        for (const s of this.ctx.getWebSockets()) {
+          if (s !== ws) try { s.send(payload); } catch { /* stale */ }
+        }
+      }
     } else if (data.type === 'ping') {
       try { ws.send(JSON.stringify({ type: 'pong' })); } catch { /* ignore */ }
     }
-    // no chat: any other message type is silently ignored
+    // any other message type is silently dropped
   }
 
   async webSocketClose(ws) {

@@ -151,20 +151,54 @@ document.getElementById('btn-continue').addEventListener('click', () => startGam
   const lbl = document.getElementById('online-label');
   function refresh() {
     const on = State.online.enabled;
-    lbl.textContent = on ? 'online — tap to go offline' : 'offline — tap to play with friends';
+    lbl.textContent = on
+      ? `online (${State.online.code || 'FIELDS'}) — tap to go offline`
+      : 'offline — tap to play with friends';
     btn.classList.toggle('on', on);
   }
   refresh();
   btn.addEventListener('click', () => {
-    State.online.enabled = !State.online.enabled;
-    save();
-    refresh();
-    if (!playing) return;
-    if (State.online.enabled) online.connect(scene);
-    else online.disconnect();
-    UI.setOnlineStatus(online);
+    if (State.online.enabled) {
+      State.online.enabled = false;
+      save(); refresh();
+      if (playing) { online.disconnect(); UI.setOnlineStatus(online); }
+    } else {
+      UI.openOnlineModal(State.online.code || 'FIELDS', (code) => {
+        State.online.code = code;
+        State.online.enabled = true;
+        save(); refresh();
+        if (playing) {
+          online.connect(scene, code);
+          online.onMsg = (name, text, color) => UI.addFriendMsg(name, text, color);
+          UI.setOnlineStatus(online);
+        }
+      });
+    }
   });
 })();
+
+// T key opens friend chat (desktop); online chip tap handles mobile
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyT' || e.repeat) return;
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (online.connected && playing) {
+    controls.releaseLock?.();
+    UI.toggleFriendChat((text) => {
+      online.sendChat(text);
+      UI.addFriendMsg('You', text, online.myColor || '#7ec8f0');
+    });
+  }
+});
+document.getElementById('onlinechip').addEventListener('click', () => {
+  if (online.connected && playing) {
+    controls.releaseLock?.();
+    UI.toggleFriendChat((text) => {
+      online.sendChat(text);
+      UI.addFriendMsg('You', text, online.myColor || '#7ec8f0');
+    });
+  }
+});
 
 function startGame(fromSave) {
   if (fromSave && load()) placeAtBed();
@@ -182,7 +216,10 @@ function startGame(fromSave) {
   UI.setPetsButton(unlocked('pets'));
   playing = true;
   controls.enabled = true;
-  if (State.online.enabled) online.connect(scene);
+  if (State.online.enabled) {
+    online.connect(scene, State.online.code || 'FIELDS');
+    online.onMsg = (name, text, color) => UI.addFriendMsg(name, text, color);
+  }
   UI.setOnlineStatus(online);
   if (!State.flags.welcomed) {
     State.flags.welcomed = true;

@@ -40,7 +40,7 @@ export const State = {
   campKits: 0,          // unplaced kits in your pack
   borrowerStash: null,  // { x, z, coins } — where the Borrower dropped your loot
   arcade: { tasks: [], done: [], endings: 0 },   // Level 3999 escape checklist
-  online: { enabled: false },                     // friends-mode: connect on game start
+  online: { enabled: false, code: 'FIELDS' },      // friends-mode: connect on game start; code = room
   lbName: '',           // auto-generated leaderboard name
   bossKills: 0,
   distance: 0,          // live distance from the house (meters)
@@ -123,7 +123,8 @@ export function load() {
     State.campKits ??= 0;
     State.borrowerStash ??= null;
     State.arcade ??= { tasks: [], done: [], endings: 0 };
-    State.online ??= { enabled: false };
+    State.online ??= { enabled: false, code: 'FIELDS' };
+    State.online.code ??= 'FIELDS';
     State.lbName ??= '';
     State.bossKills ??= 0;
     State.flags ||= {};

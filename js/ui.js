@@ -380,18 +380,91 @@ export const UI = {
     if (!chip) return;
     if (!onlineObj || !onlineObj.connected) {
       chip.classList.add('hidden');
-      // keep the title toggle label in sync
+      chip.style.pointerEvents = 'none';
       const lbl = $('online-label');
       if (lbl) lbl.textContent = onlineObj?.status === 'error' ? 'connection error' : 'offline';
       return;
     }
     chip.classList.remove('hidden');
+    chip.style.pointerEvents = 'auto';
+    chip.style.cursor = 'pointer';
     const cnt = onlineObj.peerCount;
-    chip.textContent = cnt === 0
-      ? '● online (no friends yet)'
-      : `● ${cnt} friend${cnt === 1 ? '' : 's'} here`;
+    chip.innerHTML = cnt === 0
+      ? '🌐 online &nbsp;💬'
+      : `🌐 ${cnt} friend${cnt === 1 ? '' : 's'} &nbsp;💬`;
     const lbl = $('online-label');
     if (lbl) lbl.textContent = `online (${cnt})`;
+  },
+
+  // open/close the friend chat slide-up panel
+  toggleFriendChat(onSend) {
+    const panel = $('fchat');
+    if (!panel) return;
+    if (panel.classList.contains('hidden')) {
+      panel.classList.remove('hidden');
+      const inp = $('fchat-input');
+      inp.focus();
+      if (!panel._wired) {
+        panel._wired = true;
+        const send = () => {
+          const txt = ($('fchat-input').value || '').trim();
+          if (txt) { onSend(txt); $('fchat-input').value = ''; }
+        };
+        $('fchat-send').addEventListener('click', send);
+        $('fchat-input').addEventListener('keydown', (e) => {
+          if (e.key === 'Enter') { e.preventDefault(); send(); }
+          if (e.key === 'Escape') { panel.classList.add('hidden'); }
+        });
+        $('fchat-close').addEventListener('click', () => panel.classList.add('hidden'));
+      }
+    } else {
+      panel.classList.add('hidden');
+    }
+  },
+
+  // append a message to the friend chat log
+  addFriendMsg(name, text, color) {
+    const log = $('fchat-log');
+    if (!log) return;
+    const row = document.createElement('div');
+    row.className = 'fc-msg';
+    const n = document.createElement('span');
+    n.className = 'fc-name';
+    n.style.color = color || '#7ec8f0';
+    n.textContent = name + ':';
+    const t = document.createElement('span');
+    t.className = 'fc-text';
+    t.textContent = ' ' + text;
+    row.append(n, t);
+    log.appendChild(row);
+    log.scrollTop = log.scrollHeight;
+    while (log.children.length > 50) log.removeChild(log.firstChild);
+    // briefly flash the chip if the panel is closed
+    if ($('fchat')?.classList.contains('hidden')) {
+      const chip = $('onlinechip');
+      if (chip) { chip.style.background = 'rgba(30,60,90,.9)'; setTimeout(() => chip.style.background = '', 800); }
+    }
+  },
+
+  // show/hide room-code setup modal
+  openOnlineModal(currentCode, onConfirm) {
+    const modal = $('online-modal');
+    if (!modal) return;
+    const inp = $('online-code');
+    inp.value = (currentCode || 'FIELDS').toUpperCase();
+    modal.classList.remove('hidden');
+    inp.focus(); inp.select();
+    const confirm = () => {
+      const code = inp.value.replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase() || 'FIELDS';
+      modal.classList.add('hidden');
+      onConfirm(code);
+    };
+    $('online-join').onclick = confirm;
+    $('online-cancel').onclick = () => modal.classList.add('hidden');
+    inp.onkeydown = (e) => {
+      if (e.key === 'Enter') confirm();
+      if (e.key === 'Escape') modal.classList.add('hidden');
+    };
   },
 
   // ---------- quests ----------

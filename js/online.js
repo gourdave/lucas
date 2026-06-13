@@ -1,15 +1,18 @@
 // online.js — friends-scale live presence for The Bumper Crop.
 // Connects to the Room Durable Object via WebSocket.
-// Friends appear as glowing ghost avatars that lerp smoothly.
-// Strict rules: no chat, no personal data, auto-generated names only.
-// Max 8 players per room (Lucas + 7 close friends).
+// Room code = private room: share a code with friends to land in the same room.
+// Friends appear as glowing ghost avatars + name tags that lerp smoothly.
+// Chat is relayed through the server, stripped of control chars, never stored.
+// Max 8 players per room code.
 
 import * as THREE from 'three';
+import { PROXY_URL } from './therapist.js';
 
-const ROOM_WS = 'wss://lucas.davidpgourley92.workers.dev/room';
-const SEND_MS = 100;       // position broadcast rate
-const PING_MS = 20000;     // keepalive
-const STALE_MS = 30000;    // drop a peer silent for this long
+const _BASE   = PROXY_URL.replace(/\/$/, '').replace('https://', 'wss://').replace('http://', 'ws://');
+const ROOM_WS = _BASE + '/room';   // ?code=XXXX appended on connect
+const SEND_MS  = 100;       // position broadcast rate
+const PING_MS  = 20000;     // keepalive
+const STALE_MS = 30000;     // drop a peer silent for this long
 
 export class Online {
   constructor() {
@@ -22,17 +25,23 @@ export class Online {
     this.scene    = null;
     this._sendT   = 0;
     this._pingT   = 0;
+    this._px      = 0;
+    this._pz      = 11;
+    this.onMsg         = null;   // (name, text, color) → void  for incoming chat
+    this.onPeerChange  = null;   // (count) → void
   }
 
   get peerCount() { return this.peers.size; }
   get connected()  { return this.status === 'connected'; }
 
-  connect(scene) {
-    if (this.ws) return;
+  connect(scene, code) {
+    if (this.ws) { this.ws.onclose = null; this.ws.close(); this.ws = null; }
+    this._cleanup();
     this.scene  = scene;
     this.status = 'connecting';
+    const clean = String(code || 'FIELDS').replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase() || 'FIELDS';
     try {
-      this.ws = new WebSocket(ROOM_WS);
+      this.ws = new WebSocket(ROOM_WS + '?code=' + encodeURIComponent(clean));
       this.ws.onopen    = ()  => { this.status = 'connected'; };
       this.ws.onclose   = ()  => { this._cleanup(); };
       this.ws.onerror   = ()  => { this.status = 'error'; };
@@ -44,6 +53,12 @@ export class Online {
     }
   }
 
+  sendChat(text) {
+    if (this.ws?.readyState !== 1) return;
+    const t = String(text || '').trim().slice(0, 140);
+    if (t) this.ws.send(JSON.stringify({ type: 'chat', text: t }));
+  }
+
   disconnect() {
     try { this.ws?.close(); } catch { /* ignore */ }
     this._cleanup();
@@ -52,6 +67,7 @@ export class Online {
 
   // call every frame from main.js tick(); dt in seconds
   tick(x, z, yaw, dt) {
+    this._px = x; this._pz = z;
     this._sendT -= dt * 1000;
     this._pingT -= dt * 1000;
     if (this.ws?.readyState !== 1 /* OPEN */) return;
@@ -65,7 +81,7 @@ export class Online {
     }
   }
 
-  // call every frame; smoothly lerps avatar positions
+  // call every frame; smoothly lerps avatar positions, updates bubbles
   update(dt) {
     const now = Date.now();
     for (const [id, p] of this.peers) {
@@ -77,7 +93,25 @@ export class Online {
       while (dy >  Math.PI) dy -= Math.PI * 2;
       while (dy < -Math.PI) dy += Math.PI * 2;
       p.yaw += dy * k;
-      if (p.mesh) { p.mesh.position.set(p.x, 0, p.z); p.mesh.rotation.y = p.yaw; }
+      if (p.mesh) {
+        p.mesh.position.set(p.x, 0, p.z);
+        p.mesh.rotation.y = p.yaw;
+        // hide if more than 240m away (save draw calls)
+        p.mesh.visible = Math.hypot(p.x - this._px, p.z - this._pz) < 240;
+      }
+      // chat bubble timer
+      if (p.bubbleTimer > 0) {
+        p.bubbleTimer -= dt;
+        if (p.bubbleTimer <= 0 && p.bubbleSprite) {
+          p.mesh?.remove(p.bubbleSprite);
+          p.bubbleSprite.material.map.dispose();
+          p.bubbleSprite.material.dispose();
+          p.bubbleSprite = null;
+          if (p.labelSprite) p.labelSprite.visible = true;
+        } else if (p.bubbleSprite) {
+          p.bubbleSprite.material.opacity = Math.min(1, p.bubbleTimer * 1.5);
+        }
+      }
     }
   }
 
@@ -92,12 +126,15 @@ export class Online {
     switch (data.type) {
       case 'welcome':
         this.myId = data.id; this.myName = data.name; this.myColor = data.color;
+        this.status = 'connected';
         break;
       case 'state':
         for (const p of data.peers || []) this._addPeer(p);
+        this.onPeerChange?.(this.peers.size);
         break;
       case 'joined':
         this._addPeer(data);
+        this.onPeerChange?.(this.peers.size);
         break;
       case 'move': {
         const p = this.peers.get(data.id);
@@ -110,17 +147,72 @@ export class Online {
       }
       case 'left':
         this._removePeer(data.id);
+        this.onPeerChange?.(this.peers.size);
         break;
+      case 'chat': {
+        if (data.id === this.myId) break;
+        const p = this.peers.get(data.id);
+        if (p) this._showBubble(p, data.text);
+        this.onMsg?.(data.name || 'Friend', data.text || '', data.color || '#7ec8f0');
+        break;
+      }
     }
   }
 
   _addPeer({ id, name, color, x, z, yaw }) {
-    if (this.peers.has(id)) return;
+    if (!id || this.peers.has(id)) return;
     const x0 = x ?? 0, z0 = z ?? 11;
     const mesh = this._makeMesh(color, name);
     if (this.scene) { this.scene.add(mesh); mesh.position.set(x0, 0, z0); }
+    // stash a ref to the label sprite so we can toggle it with the bubble
+    const labelSprite = mesh.children[mesh.children.length - 1];
     this.peers.set(id, { name, color: color || '#7ec8f0', x: x0, z: z0, yaw: yaw ?? 0,
-      tx: x0, tz: z0, tyaw: yaw ?? 0, mesh, lastSeen: Date.now() });
+      tx: x0, tz: z0, tyaw: yaw ?? 0, mesh, lastSeen: Date.now(),
+      bubbleSprite: null, bubbleTimer: 0, labelSprite });
+  }
+
+  _showBubble(p, text) {
+    if (p.bubbleSprite) {
+      p.mesh?.remove(p.bubbleSprite);
+      p.bubbleSprite.material.map.dispose();
+      p.bubbleSprite.material.dispose();
+    }
+    p.bubbleTimer = 6.0;
+    const cvs = this._makeBubbleCanvas(p.name, text, p.color);
+    const tex = new THREE.CanvasTexture(cvs);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const mat = new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true, fog: false });
+    const spr = new THREE.Sprite(mat);
+    spr.scale.set(3.2, 0.7, 1);
+    spr.position.y = 3.6;
+    p.bubbleSprite = spr;
+    p.mesh?.add(spr);
+    if (p.labelSprite) p.labelSprite.visible = false;
+  }
+
+  _makeBubbleCanvas(name, text, color) {
+    const cv = document.createElement('canvas');
+    cv.width = 380; cv.height = 76;
+    const c = cv.getContext('2d');
+    c.fillStyle = 'rgba(8,10,18,0.84)';
+    c.beginPath();
+    if (c.roundRect) c.roundRect(2, 2, 376, 72, 12);
+    else c.rect(2, 2, 376, 72);
+    c.fill();
+    c.strokeStyle = color || '#7ec8f0';
+    c.lineWidth = 1.5;
+    c.stroke();
+    c.fillStyle = color || '#7ec8f0';
+    c.font = 'bold 13px sans-serif';
+    c.textAlign = 'center';
+    c.fillText(String(name || 'Friend').slice(0, 20), 190, 20);
+    c.fillStyle = '#f0ead8';
+    c.font = '14px sans-serif';
+    let t = String(text || '');
+    while (c.measureText(t).width > 350 && t.length > 1) t = t.slice(0, -1);
+    if (t.length < (text || '').length) t += '…';
+    c.fillText(t, 190, 52);
+    return cv;
   }
 
   _removePeer(id) {
@@ -130,10 +222,11 @@ export class Online {
   }
 
   _cleanup() {
-    for (const [id] of this.peers) this._removePeer(id);
+    for (const [id] of [...this.peers.keys()]) this._removePeer(id);
     this.ws   = null;
     this.myId = null;
     if (this.status !== 'error') this.status = 'disconnected';
+    this.onPeerChange?.(0);
   }
 
   _makeMesh(colorHex, name) {
