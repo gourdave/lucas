@@ -73,21 +73,23 @@
   (Settler / Resident / Old-Timer)
 
 - v13.1 THE DOOR (teaser): at exactly 1000m down the power lines, a
-  single locked door stands in the wheat. Warm light pulses underneath;
-  faint music behind it. Plaque: "LEVEL 3999 — under construction —
-  kamsamnor". Door Knocker badge at the 1000m mark.
+  single locked door stands in the wheat. Door Knocker badge.
+- v14 LEVEL 3999 — "THE TRUE ENDING" (Phase O, designed by Lucas):
+  behind the 1000m door, a neon-lit RETRO ARCADE — a total safe haven
+  (no entities, +3 calm/s, chiptune, haze stands down). THREE playable
+  cabinets (Wheat Invaders / Almond Catch / Flappy Grin), a slushie
+  machine, a hidden golden token, a faceless attendant to high-five,
+  and a RANDOMIZED 4-item ESCAPE TASK board. Finish the list → the EXIT
+  opens → walk through for the TRUE ENDING (credits roll: "created by
+  KAMSAMNOR") → wake in your bed +500c +100 stardust, everything
+  banked. The task list re-rolls; the world goes on FOREVER, exactly as
+  Lucas said. (endings counter tracks how many times you've cleared it.)
 
 ## NEXT UP — decided by Lucas (2026-06-13, via text):
-1. **LEVEL 3999 — "The True Ending"** (the next MAJOR build): behind the
-   1000m door, a massive neon-lit RETRO ARCADE — safe haven, no hostile
-   entities, calming ambiance that restores sanity, classic playable
-   arcade cabinets (we already have a minigame engine from the dreams),
-   and a RANDOMIZED TASK LIST that, when completed, opens the EXIT and
-   rolls the TRUE ENDING (credits: "created by kamsamnor") — then
-   returns you to your bed with a massive reward. Per Lucas: the world
-   itself runs FOREVER; the ending is a thing you earn, not a stop.
-2. **ONLINE MODE** ("can there be online mode… like servers") — needs
-   David's go/no-go on approach (see multiplayer note below).
+1. **ONLINE MODE** ("can there be online mode… like servers") — David
+   approved building it (2026-06-13): "just his close friends anyway,
+   I'm not marketing it." Build the friends-scale version. (David also
+   said: keep the ghost-mode / live-coop options below saved for later.)
 
 ## Multiplayer feasibility note (researched constraints, 2026-06-13)
 - Full live co-op = WebSocket relay via the existing Durable Object —

@@ -35,6 +35,7 @@ import { Camps, CAMP_RATE, MAX_CAMPS } from './camps.js';
 import { Tower, TOWER_POS, TOWER_TOP } from './tower.js';
 import { Scarecrow } from './scarecrow.js';
 import { Gate, GATE_POS } from './gate.js';
+import { Arcade, SPAWN as ARCADE_SPAWN, CABINETS, TASKS, rollTasks, markTask, exitOpen } from './arcade.js';
 import { ensurePlayDay } from './progression.js';
 
 const WALK_SPEED = 4.2;
@@ -100,6 +101,7 @@ const camps = new Camps(scene);
 const tower = new Tower(scene);
 const scarecrowEnt = new Scarecrow(scene);
 const gate = new Gate(scene);
+const arcade = new Arcade(scene);
 const gnome = new Gnome(scene);
 const windowFigure = new WindowFigure(scene);
 buildBoard(scene);
@@ -197,6 +199,15 @@ function interact() {
   else if (id === 'tower') climbTower();
   else if (id === 'towerdown') climbDown();
   else if (id === 'gate') tryGate();
+  else if (id.startsWith('cab:')) playCabinet(id.slice(4));
+  else if (id === 'slushie') drinkSlushie();
+  else if (id === 'token') grabToken();
+  else if (id === 'highfive') highFive();
+  else if (id === 'taskboard') openTaskBoard();
+  else if (id === 'exit3999') {
+    if (exitOpen()) trueEnding();
+    else UI.toast('🚪 The EXIT is dark. The task board by the entrance knows what it wants.');
+  }
   else if (id.startsWith('plot')) usePlot(+id.slice(4));
 }
 
@@ -395,16 +406,126 @@ async function climbDown() {
   busy = false;
 }
 
-// ---------- the door at the 1000m mark ----------
-function tryGate() {
+// ---------- the door at the 1000m mark: LEVEL 3999 is OPEN ----------
+async function tryGate() {
+  busy = true;
+  controls.enabled = false;
+  UI.setPrompt(null);
   audio.blip();
-  audio.whisperNow();
-  UI.toast('🚪 The knob doesn\'t turn. From the other side: faint music? Laughter? A plaque reads LEVEL 3999 — and underneath, freshly carved: "under construction — kamsamnor". He\'s still building it.', 9500);
+  await UI.fade(1, 1.4);
+  player.set(ARCADE_SPAWN.x, 0, ARCADE_SPAWN.z);
+  controls.yaw = 0;          // facing the neon
+  controls.pitch = 0;
+  if (!State.arcade.tasks.length) rollTasks();
+  await UI.fade(0, 1.6);
+  controls.enabled = true;
+  busy = false;
   if (!State.flags.knockedGate) {
     State.flags.knockedGate = true;
     addXp(100);
+    bus.emit('enteredArcade', {});
     save();
+    UI.toast('🕹 LEVEL 3999 — "THE TRUE ENDING". A retro arcade, neon and humming, a thousand meters from anywhere. Nothing here hunts. Check the ESCAPE TASKS board — finish the list and the EXIT opens.', 10000);
+  } else {
+    UI.toast('🕹 Level 3999. The machines remember you.', 4000);
   }
+}
+
+// ---------- inside Level 3999 ----------
+function playCabinet(gameId) {
+  busy = true;
+  controls.enabled = false;
+  controls.releaseLock();
+  audio.blip();
+  const game = new CABINETS[gameId]();
+  UI.openCabinet(game, (result) => {
+    busy = false;
+    controls.enabled = true;
+    if (result === 'win') {
+      audio.fanfare();
+      State.money += 10;
+      State.stardust += 5;
+      UI.setMoney(State.money);
+      const counted = markTask(gameId);
+      UI.toast(`🏆 ${game.title} — WINNER! +🪙10 +5✨${counted ? ' — task complete!' : ''}`, 5000);
+      save();
+    } else if (result === 'lose') {
+      UI.toast('💥 The machine flashes GAME OVER, gently. Free retries forever — this level is kind.');
+    }
+  });
+}
+
+function drinkSlushie() {
+  if (State.money < 5) { UI.toast('🥤 The slushie machine hums. 🪙5. It can wait. It has waited a long time.'); return; }
+  State.money -= 5;
+  addCalm(30);
+  audio.chime();
+  UI.setMoney(State.money);
+  const counted = markTask('slushie');
+  UI.toast(`🥤 Neon slushie. Your brain freezes in a calming way. (+30 calm)${counted ? ' — task complete!' : ''}`, 4500);
+  save();
+}
+
+function grabToken() {
+  if (State.arcade.done.includes('token')) return;
+  audio.coin();
+  State.money += 25;
+  UI.setMoney(State.money);
+  const counted = markTask('token');
+  UI.toast(`🪙 A golden token, hidden behind the prize counter. +🪙25${counted ? ' — task complete!' : ''}`, 4500);
+}
+
+let highfives = 0;
+const HIGHFIVE_LINES = [
+  'It raises one smooth hand. You high-five it. Somewhere, a skee-ball machine cheers.',
+  'The high-five echoes longer than it should. The attendant seems pleased.',
+  '“Nice.” says the attendant, without a mouth, without a doubt.',
+];
+function highFive() {
+  audio.pop();
+  const counted = markTask('highfive');
+  UI.toast(`🖐 ${HIGHFIVE_LINES[highfives++ % HIGHFIVE_LINES.length]}${counted ? ' — task complete!' : ''}`, 4800);
+}
+
+function openTaskBoard() {
+  controls.enabled = false;
+  controls.releaseLock();
+  audio.page();
+  UI.openTasks(TASKS);
+}
+
+bus.on('taskDone', ({ left }) => {
+  if (left <= 0) {
+    audio.fanfare();
+    setTimeout(() => UI.toast('✦ ALL TASKS COMPLETE — THE EXIT IS OPEN. Daylight is leaking through the north wall. ✦', 7000), 1200);
+  }
+});
+
+async function trueEnding() {
+  busy = true;
+  controls.enabled = false;
+  controls.releaseLock();
+  UI.setPrompt(null);
+  audio.stopArcade();
+  audio.fanfare();
+  await UI.fade(1, 2.0);
+  // everything you were carrying comes home with you, full rate
+  Expedition.bank(1);
+  State.money += 500;
+  State.stardust += 100;
+  State.arcade.endings++;
+  bus.emit('trueEnding', { n: State.arcade.endings });
+  save();
+  await UI.runCredits();
+  rollTasks();              // the level resets its list — forever, like he said
+  placeAtBed();
+  State.sanity = State.maxSanity;
+  save();
+  await UI.fade(0, 1.6);
+  UI.setMoney(State.money);
+  UI.toast(`🌅 You wake in your own bed. +🪙500, +100✨, everything banked. The fields are still out there. They always will be. (True Endings: ${State.arcade.endings})`, 9000);
+  controls.enabled = true;
+  busy = false;
 }
 
 // ---------- The Scarecrow That Wasn't There ----------
@@ -1323,8 +1444,9 @@ function tick() {
     const dz = (-cos * mv.y - sin * mv.x) * WALK_SPEED * speedMult * dt;
     const out = house.collide(player.x, player.z, player.x + dx, player.z + dz, player.y);
     const out2 = maze.collide(player.x, player.z, out.x, out.z);
-    player.x = out2.x;
-    player.z = out2.z;
+    const out3 = arcade.collide(player.x, player.z, out2.x, out2.z);
+    player.x = out3.x;
+    player.z = out3.z;
     stillTime = 0;
     // walking bob + a footstep at each end of the sway
     walkPhase += dt * 7.2;
@@ -1371,9 +1493,14 @@ function tick() {
   // window panes mirror the sky by day and glow warm in the dark — a beacon home
   house.windowMat.color.copy(world.skyColor).lerp(_warmWindow, world.fear * 0.85);
   therapist.update(dt, player);
-  // a campfire's circle counts as home, as far as the hunting things know
+  // a campfire's circle counts as home — and so does all of Level 3999
   const inCamp = camps.inCamp(player);
-  const safe = inYard || inCamp;
+  const inArcade = arcade.inside(player);
+  const safe = inYard || inCamp || inArcade;
+  world.lowFog = inArcade;
+  arcade.update(dt, State.playTime, player);
+  if (inArcade) audio.startArcade();
+  else audio.stopArcade();
   if (controls.enabled) {
     creatures.update(dt, player, camera, world.fear, safe, stillTime);
     monsters.update(dt, player, safe);
@@ -1430,7 +1557,7 @@ function tick() {
   // --- danger systems ---
   if (!inDream) {
     boss.update(dt, player, monsters);
-    harvestNight.update(dt, State.distance, inYard);
+    harvestNight.update(dt, State.distance, inYard || inArcade);
     world.harvestNight = harvestNight.active;
     monsters.frenzy = harvestNight.active;
     monsters.cartNoise = State.ride === 'cart' && !inYard;
@@ -1460,6 +1587,7 @@ function tick() {
   // --- sanity ---
   let delta = 0;
   if (inside) delta += 3.0;
+  else if (inArcade) delta += 3.0;     // the calmest place on the level
   else if (inYard) delta += 1.6;
   else if (inCamp) delta += 2.2;       // the fire keeps the dark honest
   else {
@@ -1481,6 +1609,23 @@ function tick() {
       if (Math.abs(player.y - h.y) > 1.4) continue;
       const d2 = (player.x - h.x) ** 2 + (player.z - h.z) ** 2;
       if (d2 < h.r * h.r && d2 < best) { best = d2; currentHotspot = h; }
+    }
+    // Level 3999's hotspots (only meaningful inside the hall)
+    if (!currentHotspot && arcade.inside(player)) {
+      for (const c of arcade.cabinetSpots) {
+        if (arcade.nearSpot(player, c)) { currentHotspot = { id: 'cab:' + c.id, label: `🕹 Play ${c.name}` }; break; }
+      }
+      if (!currentHotspot && arcade.nearSpot(player, arcade.slushSpot)) {
+        currentHotspot = { id: 'slushie', label: '🥤 Neon Slushie (🪙5)' };
+      } else if (!currentHotspot && !State.arcade.done.includes('token') && arcade.nearSpot(player, arcade.tokenSpot, 1.4)) {
+        currentHotspot = { id: 'token', label: '✨ something glints back here…' };
+      } else if (!currentHotspot && arcade.nearSpot(player, arcade.attSpot)) {
+        currentHotspot = { id: 'highfive', label: '🖐 High-five the attendant' };
+      } else if (!currentHotspot && arcade.nearSpot(player, arcade.boardSpot)) {
+        currentHotspot = { id: 'taskboard', label: '📋 Escape tasks' };
+      } else if (!currentHotspot && arcade.nearSpot(player, arcade.exitSpot)) {
+        currentHotspot = { id: 'exit3999', label: () => exitOpen() ? '🚪 EXIT — THE TRUE ENDING' : '🚪 EXIT (locked)' };
+      }
     }
     // field "hotspots" — the dock, any active dig site, and the counter
     if (!currentHotspot && pond.near(player)) {
@@ -1524,10 +1669,12 @@ function tick() {
   mapT -= dt;
   if (mapT <= 0) {
     mapT = 0.15;
-    UI.setMapVisible(true);
-    // climbing the tower once widens the glass forever
-    UI.drawMap(player.x, player.z, controls.yaw, mapMarkers(), world.fear,
-      State.flags.towerClimbed ? 280 : 170);
+    UI.setMapVisible(!inArcade);   // Level 3999 doesn't appear on maps
+    if (!inArcade) {
+      // climbing the tower once widens the glass forever
+      UI.drawMap(player.x, player.z, controls.yaw, mapMarkers(), world.fear,
+        State.flags.towerClimbed ? 280 : 170);
+    }
   }
 
   // --- audio mix ---

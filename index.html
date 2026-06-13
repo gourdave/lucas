@@ -193,6 +193,25 @@
     border: 1px solid rgba(216,178,79,.35); background: rgba(8,10,14,.4);
   }
 
+  /* ---------- Level 3999 ---------- */
+  #cabbox { width: min(360px, 94vw); touch-action: none; }
+  #cabcanvas {
+    display: block; margin: 12px auto 6px; width: calc(100% - 24px);
+    border-radius: 8px; border: 1px solid rgba(0,229,255,.35); image-rendering: pixelated;
+  }
+  #cabhud { text-align: center; font-size: 13px; color: #9be8ff; padding: 0 12px 12px; min-height: 18px; }
+  #credits {
+    position: fixed; inset: 0; z-index: 60; background: #000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 10px; cursor: pointer;
+  }
+  .cr-line {
+    font-size: 22px; letter-spacing: .25em; color: #ffce54; opacity: 0;
+    animation: crfade 4s ease forwards; text-align: center;
+  }
+  .cr-line:nth-child(odd) { color: #e8dff0; }
+  @keyframes crfade { 0% { opacity: 0; transform: translateY(8px); } 20% { opacity: 1; transform: none; } 100% { opacity: 1; } }
+
   /* ---------- interact prompt ---------- */
   #prompt {
     position: fixed; bottom: calc(16% + env(safe-area-inset-bottom)); left: 50%; transform: translateX(-50%);
@@ -499,6 +518,23 @@
     <div class="panel-body" id="wallbody"></div>
   </div>
 </div>
+
+<div id="cabpanel" class="panel-wrap hidden">
+  <div class="panel" id="cabbox">
+    <div class="panel-head"><span id="cabtitle">CABINET</span><button id="cabclose">×</button></div>
+    <canvas id="cabcanvas" width="320" height="240"></canvas>
+    <div id="cabhud"></div>
+  </div>
+</div>
+
+<div id="arcadepanel" class="panel-wrap hidden">
+  <div class="panel">
+    <div class="panel-head"><span>📋 ESCAPE TASKS — LEVEL 3999</span><button id="arcadeclose">×</button></div>
+    <div class="panel-body" id="arcadebody"></div>
+  </div>
+</div>
+
+<div id="credits" class="hidden"></div>
 
 <div id="picker" class="panel-wrap hidden">
   <div class="panel">

@@ -342,6 +342,37 @@ export class GameAudio {
     }, p.tempo);
   }
 
+  // Level 3999's house chiptune — separate from the radio so they never fight
+  startArcade() {
+    if (this._arcTimer || !this.ctx) return;
+    const ctx = this.ctx;
+    this.arcGain = ctx.createGain();
+    this.arcGain.gain.value = 0.1;
+    this.arcGain.connect(this.master);
+    const notes = [0, 7, 12, 7, 4, 7, 12, 16, 12, 7, 4, 0, 5, 9, 12, 9];
+    let step = 0;
+    this._arcTimer = setInterval(() => {
+      if (ctx.state !== 'running') return;
+      const t = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.value = 392 * Math.pow(2, notes[step % notes.length] / 12);
+      const g = ctx.createGain();
+      this._env(g, t, 0.4, 0.01, 0.22);
+      osc.connect(g).connect(this.arcGain);
+      osc.start(t);
+      osc.stop(t + 0.26);
+      step++;
+    }, 190);
+  }
+
+  stopArcade() {
+    if (this._arcTimer) clearInterval(this._arcTimer);
+    this._arcTimer = null;
+    if (this.arcGain) { try { this.arcGain.disconnect(); } catch {} }
+    this.arcGain = null;
+  }
+
   stopTape() {
     if (this._tapeTimer) clearInterval(this._tapeTimer);
     this._tapeTimer = null;

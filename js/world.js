@@ -14,7 +14,13 @@ import { eggTierForDepth, EGG_TIERS } from './pets.js';
 import { POND_POS, POND_R, RIVER_POINTS } from './fishing.js';
 import { WCD_POS, WCD_R } from './wcdonalds.js';
 import { BARN_POS } from './boss.js';
+import { ARCADE_POS, ARCADE_W, ARCADE_D } from './arcade.js';
 import { contactDisc } from './gfx.js';
+
+function inArcadeFootprint(x, z) {
+  return Math.abs(x - ARCADE_POS.x) < ARCADE_W / 2 + 3 &&
+         Math.abs(z - ARCADE_POS.z) < ARCADE_D / 2 + 3;
+}
 
 const CHUNK = 40;
 const GRID = 5;
@@ -544,6 +550,7 @@ export class World {
       if (Math.hypot(x - POND_POS.x, z - POND_POS.z) < POND_R + 2.4) used = false; // the pond
       if (Math.hypot(x - WCD_POS.x, z - WCD_POS.z) < WCD_R) used = false;          // the restaurant
       if (used && nearRiver(x, z, 3.4)) used = false;                              // the river
+      if (used && inArcadeFootprint(x, z)) used = false;                           // Level 3999
       const s = used ? 0.75 + rnd() * 0.6 : 0.0001;   // chest-high at most
       _pos.set(x, 0, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
@@ -564,6 +571,7 @@ export class World {
       if (Math.hypot(x - POND_POS.x, z - POND_POS.z) < POND_R + 1.5) used = false;
       if (Math.hypot(x - WCD_POS.x, z - WCD_POS.z) < WCD_R - 1) used = false;
       if (used && nearRiver(x, z, 2.6)) used = false;
+      if (used && inArcadeFootprint(x, z)) used = false;
       const s = used ? 0.7 + rnd() * 0.9 : 0.0001;
       _pos.set(x, 0, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
@@ -580,7 +588,8 @@ export class World {
       const x = bx + i * (CHUNK / TREE_N) + rnd() * 5;
       const z = bz + rnd() * 2.5;
       const used = hasTrees && Math.hypot(x, z) > 26 &&
-        Math.hypot(x - WCD_POS.x, z - WCD_POS.z) > WCD_R + 3;
+        Math.hypot(x - WCD_POS.x, z - WCD_POS.z) > WCD_R + 3 &&
+        !inArcadeFootprint(x, z);
       const s = used ? 0.8 + rnd() * 0.8 : 0.0001;
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
       _pos.set(x, 1.3 * s, z); _scl.set(s, s, s);
@@ -597,7 +606,8 @@ export class World {
       const x = bx + rnd() * CHUNK, z = bz + rnd() * CHUNK;
       const used = rnd() < 0.55 && Math.hypot(x, z) > 22 &&
         Math.hypot(x - WCD_POS.x, z - WCD_POS.z) > WCD_R &&
-        Math.hypot(x - POND_POS.x, z - POND_POS.z) > POND_R;
+        Math.hypot(x - POND_POS.x, z - POND_POS.z) > POND_R &&
+        !inArcadeFootprint(x, z);
       const s = used ? 0.5 + rnd() * 0.9 : 0.0001;
       _pos.set(x, 0.45 * s, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
@@ -709,7 +719,8 @@ export class World {
 
     const f = this.fear;
     this.skyColor.lerpColors(this._day, this.harvestNight ? this._bloodNight : this._night, this.harvestNight ? Math.max(f, 0.85) : f);
-    this.scene.fog.density = 0.012 + f * 0.034;
+    // inside Level 3999 the haze stands down — neon needs clean air
+    this.scene.fog.density = this.lowFog ? 0.004 : 0.012 + f * 0.034;
     this.hemi.intensity = 1.6 - f * 1.42;
     this.dir.intensity = 1.05 - f * 0.97;
     // sky dome: horizon slightly brighter than the zenith = overcast
