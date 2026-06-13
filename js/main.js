@@ -22,7 +22,7 @@ import { Decor } from './decor.js';
 import { initJournal, checkDepthBadges, TAPE_DEX } from './journal.js';
 import { submitScores, ensureLbName } from './lb.js';
 import { DREAMS, NIGHTMARE } from './dreams.js';
-import { Pond, POND_POS, FISH, rollFish } from './fishing.js';
+import { Pond, POND_POS, FISH, rollWithBait, River, BaitShack, FISH_SHOP, SHACK_LINES } from './fishing.js';
 import { DigSiteMarker, broadcastAvailable, makeBroadcast, digHud, digOnce } from './digsite.js';
 import { Listener } from './listener.js';
 import { seedForDepth } from './garden.js';
@@ -85,6 +85,8 @@ const boss = new Boss(scene);
 const harvestNight = new HarvestNight();
 const decor = new Decor(scene);
 const pond = new Pond(scene);
+const river = new River(scene);
+const baitShack = new BaitShack(scene);
 const digMarker = new DigSiteMarker(scene);
 const listenerEnt = new Listener(scene);
 const wcd = new WcDonalds(scene);
@@ -179,6 +181,7 @@ function interact() {
   else if (id === 'radio') cycleRadio();
   else if (id === 'chest') openDailyChest();
   else if (id === 'pond') startFishing();
+  else if (id === 'bait') openBaitShop();
   else if (id === 'dig') doDig();
   else if (id === 'wcd') openOrder();
   else if (id === 'wall') openWall();
@@ -200,7 +203,14 @@ function startFishing() {
     UI.toast('🎣 An old rod leans against the dock, line already wet. Left here. For you, apparently.', 5200);
   }
   audio.splash();
-  const fishId = rollFish(fishStreak, harvestNight.active);
+  // bait: one charge per cast, sweetens the roll and hurries the bite
+  let baited = null;
+  if (State.bait.n > 0) {
+    baited = State.bait.kind;
+    State.bait.n--;
+    if (State.bait.n === 0) State.bait.kind = null;
+  }
+  const fishId = rollWithBait(fishStreak, baited, harvestNight.active);
   UI.openFishing(fishId, (ev) => {
     if (ev === 'bite') audio.blip();
     else if (ev === 'caught') audio.chime();
@@ -215,12 +225,43 @@ function startFishing() {
       bus.emit('fishCaught', { id: fishId });
       addXp(10);
       if (f.rarity === 'rare' || f.rarity === 'legendary') audio.fanfare();
-      UI.toast(`${f.emoji} ${f.name} — 🪙${f.coins} pending! ${fishStreak >= 2
+      const baitNote = State.bait.n > 0 ? ` (${State.bait.kind === 'glow' ? '✨' : '🪱'} bait ×${State.bait.n} left)` : '';
+      UI.toast(`${f.emoji} ${f.name} — 🪙${f.coins} pending!${baitNote} ${fishStreak >= 2
         ? `Streak ×${fishStreak}… something bigger is circling.`
         : 'Keep casting — the pond gets curious about people who stay.'}`, 4800);
     } else if (result === 'escaped') {
       UI.toast('It slipped the cage and was gone. Cast again!');
     }
+  }, { fastBite: !!baited });
+}
+
+// ---------- the bait shack ----------
+let shackLine = 0;
+function openBaitShop() {
+  controls.enabled = false;
+  controls.releaseLock();
+  audio.blip();
+  const opts = FISH_SHOP.filter((it) => it.avail()).map((it) => ({
+    value: it.id, emoji: it.emoji,
+    label: `${it.name} — 🪙${it.price}`,
+    sub: it.desc,
+    button: 'buy',
+  }));
+  UI.openPicker('🎣 THE BAIT SHACK', opts, (id) => {
+    const it = FISH_SHOP.find((x) => x.id === id);
+    if (State.money < it.price) {
+      UI.toast('…not enough coins. The bucket tilts down at you, slowly. No newspaper today.');
+      controls.enabled = true;
+      return;
+    }
+    State.money -= it.price;
+    it.buy();
+    save();
+    audio.coin();
+    UI.setMoney(State.money);
+    shackLine = (shackLine + 1) % SHACK_LINES.length;
+    UI.toast(`${it.emoji} ${it.name} — yours. ${SHACK_LINES[shackLine]}`, 5200);
+    controls.enabled = true;
   });
 }
 
@@ -765,9 +806,15 @@ function cook() {
   audio.sizzle();
   UI.setPrompt(null);
   setTimeout(() => {
-    const pool = ['shrimp', 'pasta'];
-    if (State.recipes.includes('stew')) pool.push('stew', 'stew'); // new recipe cooks often
-    gainMeal(pool[(Math.random() * pool.length) | 0], ' on the stove');
+    // fresh catch takes priority: a banked fish becomes a proper dinner
+    if ((State.inventory.food.rawfish || 0) > 0) {
+      State.inventory.food.rawfish--;
+      gainMeal('fishdinner', ' from your fresh catch');
+    } else {
+      const pool = ['shrimp', 'pasta'];
+      if (State.recipes.includes('stew')) pool.push('stew', 'stew'); // new recipe cooks often
+      gainMeal(pool[(Math.random() * pool.length) | 0], ' on the stove');
+    }
     busy = false;
   }, 1600);
 }
@@ -1308,6 +1355,8 @@ function tick() {
     // field "hotspots" — the dock, any active dig site, and the counter
     if (!currentHotspot && pond.near(player)) {
       currentHotspot = { id: 'pond', label: '🎣 fish the dark water' };
+    } else if (!currentHotspot && baitShack.near(player)) {
+      currentHotspot = { id: 'bait', label: '🪱 The Bait Shack' };
     } else if (!currentHotspot && digMarker.near(player)) {
       currentHotspot = { id: 'dig', label: () => `⛏ DIG (${(State.digSite ? State.digSite.taps : 0)}/3)` };
     } else if (!currentHotspot && wcd.nearCounter(player)) {

@@ -51,6 +51,50 @@ export function rollFish(streak, harvestNight, rnd = Math.random) {
   return rnd() < 0.5 ? 'carp' : 'moonscale';
 }
 
+// bait sweetens the roll: worms count as +1 streak, glow grubs as +2
+// (and glow grubs are too interesting for boots to bite)
+export function rollWithBait(streak, baitKind, harvestNight, rnd = Math.random) {
+  const bonus = baitKind === 'glow' ? 2 : baitKind === 'worm' ? 1 : 0;
+  let id = rollFish(streak + bonus, harvestNight, rnd);
+  if (id === 'boot' && baitKind === 'glow') id = rollFish(streak + bonus, harvestNight, rnd);
+  return id;
+}
+
+// ---------- the bait shack's stock ----------
+export const FISH_SHOP = [
+  {
+    id: 'rod1', name: 'Willow Rod', emoji: '🎣', price: 150,
+    desc: 'A wider catch-cage and a surer reel. The pond respects willow.',
+    avail: () => State.rodTier < 1,
+    buy: () => { State.rodTier = 1; },
+  },
+  {
+    id: 'rod2', name: 'Storm-Line Rod', emoji: '⚡', price: 400,
+    desc: 'Strung with wire from the power lines. Even the eels think twice.',
+    avail: () => State.rodTier === 1,
+    buy: () => { State.rodTier = 2; },
+  },
+  {
+    id: 'worms', name: 'Worm Tin ×3', emoji: '🪱', price: 30,
+    desc: 'Three casts of faster bites and friendlier rolls (+1 streak).',
+    avail: () => true,
+    buy: () => { State.bait = { kind: 'worm', n: (State.bait.kind === 'worm' ? State.bait.n : 0) + 3 }; },
+  },
+  {
+    id: 'glow', name: 'Glow Grubs ×3', emoji: '✨', price: 90,
+    desc: 'Three casts that even the deep things notice (+2 streak, no boots).',
+    avail: () => true,
+    buy: () => { State.bait = { kind: 'glow', n: (State.bait.kind === 'glow' ? State.bait.n : 0) + 3 }; },
+  },
+];
+
+export const SHACK_LINES = [
+  'The bucket on its shoulders tilts, approving.',
+  '“Mm.” says the bucket, somehow.',
+  'It wraps your purchase in old newspaper. The headlines are all about wheat.',
+  'A wave of one driftwood arm. Transaction complete.',
+];
+
 // ---------- the reel minigame (pure logic — the DOM lives in ui.js) ----------
 // A fish bobs up and down a vertical track; your catch-cage rises while you
 // hold and sinks when you let go. Keep the fish caged to fill the bar.
@@ -64,7 +108,11 @@ export class ReelGame {
     this.retarget = 0;
     this.zonePos = 0.5;        // the cage's center
     this.zoneVel = 0;
-    this.zoneSize = Math.max(0.16, 0.36 - this.fish.speed * 0.09);
+    // better rods = a wider cage, a faster reel, a slower escape
+    const tier = State.rodTier || 0;
+    this.zoneSize = Math.max(0.16, 0.36 - this.fish.speed * 0.09) + tier * 0.05;
+    this.gain = 0.17 + tier * 0.02;
+    this.drain = 0.105 - tier * 0.015;
     this.progress = 0.38;      // a head start — kid-friendly
     this.done = null;          // 'caught' | 'escaped'
   }
@@ -88,10 +136,146 @@ export class ReelGame {
     // progress
     const inZone = Math.abs(this.fishPos - this.zonePos) < this.zoneSize / 2 + 0.04;
     this.inZone = inZone;
-    this.progress += (inZone ? 0.17 : -0.105) * dt;
+    this.progress += (inZone ? this.gain : -this.drain) * dt;
     if (this.progress >= 1) this.done = 'caught';
     else if (this.progress <= 0) this.done = 'escaped';
     return this.done;
+  }
+}
+
+// ---------- the river that leads you to the pond (Luke's idea) ----------
+// a winding ribbon of the same dark water, from the edge of the yard to the
+// pond's western bank — follow the water, find the fishing.
+const RIVER_PATH = [
+  [12, -14], [18, -20], [23, -28], [27, -35], [33, -40], [36, -42],
+];
+
+// sampled points for the world's wheat-exclusion check
+export const RIVER_POINTS = (() => {
+  const pts = [];
+  for (let i = 0; i < RIVER_PATH.length - 1; i++) {
+    const [x0, z0] = RIVER_PATH[i], [x1, z1] = RIVER_PATH[i + 1];
+    for (let t = 0; t < 1; t += 0.25) pts.push([x0 + (x1 - x0) * t, z0 + (z1 - z0) * t]);
+  }
+  pts.push(RIVER_PATH[RIVER_PATH.length - 1]);
+  return pts;
+})();
+
+export class River {
+  constructor(scene) {
+    const curve = new THREE.CatmullRomCurve3(
+      RIVER_PATH.map(([x, z]) => new THREE.Vector3(x, 0, z)));
+    const N = 40, W = 1.7;
+    const pos = new Float32Array((N + 1) * 2 * 3);
+    const idx = [];
+    const pt = new THREE.Vector3(), tan = new THREE.Vector3();
+    for (let i = 0; i <= N; i++) {
+      curve.getPoint(i / N, pt);
+      curve.getTangent(i / N, tan);
+      const nx = -tan.z, nz = tan.x;   // sideways
+      pos.set([pt.x + nx * W, 0.05, pt.z + nz * W], i * 6);
+      pos.set([pt.x - nx * W, 0.05, pt.z - nz * W], i * 6 + 3);
+      if (i < N) {
+        const a = i * 2;
+        idx.push(a, a + 1, a + 2, a + 1, a + 3, a + 2);
+      }
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setIndex(idx);
+    geo.computeVertexNormals();
+    const water = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({
+      color: 0x14242e, emissive: 0x06141c, transparent: true, opacity: 0.92,
+      side: THREE.DoubleSide }));   // ribbon winding varies with the bends
+    scene.add(water);
+    // reeds along the banks
+    for (const [x, z] of RIVER_POINTS) {
+      if (Math.random() < 0.55) continue;
+      const s = Math.random() < 0.5 ? 1 : -1;
+      const reed = new THREE.Mesh(new THREE.ConeGeometry(0.04, 1.1 + Math.random(), 4),
+        new THREE.MeshLambertMaterial({ color: 0x4a5a3a }));
+      reed.position.set(x + s * (W + 0.4 + Math.random()), 0.6, z + (Math.random() - 0.5) * 2);
+      scene.add(reed);
+    }
+  }
+}
+
+// ---------- THE BAIT SHACK, next to the pond (also Luke's idea) ----------
+// run by the scarecrow's cousin: driftwood limbs, waders, a bucket for a head
+export const SHACK_POS = { x: 54, z: -36 };
+
+export class BaitShack {
+  constructor(scene) {
+    const g = new THREE.Group();
+    const wood = new THREE.MeshLambertMaterial({ color: 0x5d4d38 });
+    const mk = (w, h, d, x, y, z, mat = wood) => {
+      const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+      m.position.set(x, y, z);
+      g.add(m);
+      return m;
+    };
+    mk(4.2, 2.6, 0.2, 0, 1.3, -1.6);                  // back wall
+    mk(0.2, 2.6, 3.2, -2.1, 1.3, 0);                  // sides
+    mk(0.2, 2.6, 3.2, 2.1, 1.3, 0);
+    mk(4.6, 0.18, 3.8, 0, 2.7, 0, new THREE.MeshLambertMaterial({ color: 0x3a3e44 })); // roof
+    mk(4.2, 0.9, 0.7, 0, 0.45, 1.4);                  // the counter
+    // the sign
+    const cv = document.createElement('canvas');
+    cv.width = 256; cv.height = 64;
+    const c = cv.getContext('2d');
+    c.fillStyle = '#33415a'; c.fillRect(0, 0, 256, 64);
+    c.fillStyle = '#cfe2f0'; c.font = 'bold 34px Georgia'; c.textAlign = 'center';
+    c.fillText('🎣 BAIT', 128, 44);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.6),
+      new THREE.MeshBasicMaterial({ map: tex }));
+    sign.position.set(0, 2.35, 1.91);
+    g.add(sign);
+    // the cousin: driftwood body, waders, bucket head
+    const cousin = new THREE.Group();
+    const waders = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.34, 1.0, 7),
+      new THREE.MeshLambertMaterial({ color: 0x2e3e2e }));
+    waders.position.y = 0.5;
+    cousin.add(waders);
+    const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.26, 0.8, 7), wood);
+    torso.position.y = 1.4;
+    cousin.add(torso);
+    const bucket = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.2, 0.4, 9),
+      new THREE.MeshLambertMaterial({ color: 0x7a8288 }));
+    bucket.position.y = 2.0;
+    cousin.add(bucket);
+    for (const s of [-1, 1]) {
+      const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.06, 0.85, 5), wood);
+      arm.position.set(s * 0.34, 1.45, 0.08);
+      arm.rotation.z = s * 0.5;
+      cousin.add(arm);
+    }
+    cousin.position.set(0, 0, -0.7);
+    g.add(cousin);
+    // rod rack + worm barrel set dressing
+    for (let i = 0; i < 3; i++) {
+      const rod = new THREE.Mesh(new THREE.CylinderGeometry(0.022, 0.03, 2.2, 5), wood);
+      rod.position.set(-1.6 + i * 0.3, 1.2, -1.35);
+      rod.rotation.z = 0.16;
+      g.add(rod);
+    }
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.3, 0.7, 9),
+      new THREE.MeshLambertMaterial({ color: 0x6a4a2e }));
+    barrel.position.set(1.5, 0.35, 0.4);
+    g.add(barrel);
+    const lamp = new THREE.PointLight(0xbfe0f0, 5, 9, 2);
+    lamp.position.set(0, 2.4, 0.5);
+    g.add(lamp);
+
+    g.position.set(SHACK_POS.x, 0, SHACK_POS.z);
+    g.rotation.y = Math.PI / 2 + 0.35;   // counter faces the pond
+    scene.add(g);
+  }
+
+  near(p) {
+    const dx = p.x - SHACK_POS.x, dz = p.z - SHACK_POS.z;
+    return dx * dx + dz * dz < 14;
   }
 }
 

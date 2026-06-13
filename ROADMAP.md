@@ -48,6 +48,15 @@
   the firelight, calm regenerates, and the fire banks loot at 70% (carry
   it home for full Bravery instead — your call, that's the game)
 
+- v12 the fishing update (Phase M, designed by Lucas): a RIVER that winds
+  from the yard fence down to the pond · THE BAIT SHACK on the bank (run
+  by the scarecrow's cousin: driftwood, waders, bucket head) selling rod
+  upgrades (Willow 150c, Storm-Line 400c — wider cage, faster reel,
+  slower escapes) and bait (Worm Tin +1 streak, Glow Grubs +2 and
+  boot-proof, 3 casts each, faster bites) · FISH COOKING — banked fish
+  arrive as raw fish in your pocket; the stove turns them into fish
+  dinner (50 food, 25 calm)
+
 ## NEXT UP
 - (nothing queued — awaiting the next batch from Lucas/David)
 
@@ -81,7 +90,6 @@ Nothing here gets forgotten. Built items move to "Shipped".
 - ✅ Camp kits *(v11)*
 - Crop mutations: rare golden/glittering crops worth 10×, journal entries
 - Pet levels: XP while following you, abilities strengthen, one evolution
-- Fish cooking: banked fish become stove meals (fish dinner = big calm)
 - Weather days: fog morning / rain (almond water falls?) variations
 
 ## Endgame & difficulty design (decided 2026-06-12)

@@ -32,6 +32,8 @@ export const State = {
   digsDone: 0,
   listenersSurvived: 0, // times you froze until The Listener gave up
   mysteries: {},        // string-wall threads: { gnome: { found, solved, shots } }
+  rodTier: 0,           // 0 old rod · 1 willow · 2 storm-line
+  bait: { kind: null, n: 0 },   // worm | glow casts remaining
   camps: [],            // placed campsites: [{ x, z }]
   campKits: 0,          // unplaced kits in your pack
   borrowerStash: null,  // { x, z, coins } — where the Borrower dropped your loot
@@ -109,6 +111,8 @@ export function load() {
     State.digsDone ??= 0;
     State.listenersSurvived ??= 0;
     State.mysteries ??= {};
+    State.rodTier ??= 0;
+    State.bait ??= { kind: null, n: 0 };
     State.camps ??= [];
     State.campKits ??= 0;
     State.borrowerStash ??= null;

@@ -11,7 +11,7 @@ import { State, bus } from './state.js';
 import { unlocked } from './progression.js';
 import { seedForDepth } from './garden.js';
 import { eggTierForDepth, EGG_TIERS } from './pets.js';
-import { POND_POS, POND_R } from './fishing.js';
+import { POND_POS, POND_R, RIVER_POINTS } from './fishing.js';
 import { WCD_POS, WCD_R } from './wcdonalds.js';
 import { BARN_POS } from './boss.js';
 import { contactDisc } from './gfx.js';
@@ -33,6 +33,15 @@ const POLE_GAP = 35;
 const POLE_Z = -25;   // the power line runs east-west, north of the house
 
 function mod(n, m) { return ((n % m) + m) % m; }
+
+// is (x,z) close to the river's course? (keeps wheat off the water)
+function nearRiver(x, z, r) {
+  for (const [rx, rz] of RIVER_POINTS) {
+    const dx = x - rx, dz = z - rz;
+    if (dx * dx + dz * dz < r * r) return true;
+  }
+  return false;
+}
 
 // deterministic random generator per chunk (mulberry32)
 function rng(cx, cz) {
@@ -534,6 +543,7 @@ export class World {
       if (Math.abs(x) < 2.6 && z > 0 && z < 75) used = false;     // the dirt path
       if (Math.hypot(x - POND_POS.x, z - POND_POS.z) < POND_R + 2.4) used = false; // the pond
       if (Math.hypot(x - WCD_POS.x, z - WCD_POS.z) < WCD_R) used = false;          // the restaurant
+      if (used && nearRiver(x, z, 3.4)) used = false;                              // the river
       const s = used ? 0.75 + rnd() * 0.6 : 0.0001;   // chest-high at most
       _pos.set(x, 0, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
@@ -553,6 +563,7 @@ export class World {
       if (Math.abs(x) < 2.4 && z > 0 && z < 75) used = false;
       if (Math.hypot(x - POND_POS.x, z - POND_POS.z) < POND_R + 1.5) used = false;
       if (Math.hypot(x - WCD_POS.x, z - WCD_POS.z) < WCD_R - 1) used = false;
+      if (used && nearRiver(x, z, 2.6)) used = false;
       const s = used ? 0.7 + rnd() * 0.9 : 0.0001;
       _pos.set(x, 0, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
