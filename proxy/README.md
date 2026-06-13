@@ -35,3 +35,26 @@ worker, the worker calls Claude. Players need zero setup.
 
 If the worker is ever down or unreachable, the game silently falls back to
 the built-in therapist brain — nothing breaks.
+
+---
+
+## Setting up ONLINE MODE (friends presence) — one extra step
+
+The `Room` Durable Object handles real-time friend positions via WebSocket.
+It's already in `worker.js` — you just need to tell Cloudflare it exists.
+
+1. **Re-paste the whole `worker.js`** into the worker's code editor and hit
+   **Deploy** (the `Room` class is now in the file).
+
+2. **Create the Durable Object binding**: on the worker page →
+   *Settings → Durable Objects → Add binding*
+   - **Variable name:** `ROOM`
+   - **Durable Object class:** `Room`
+   → Save + Deploy.
+
+3. **Verify**: visit `https://lucas.davidpgourley92.workers.dev/` — the JSON
+   should now show `"room": true`.
+
+That's it. Lucas can now tap 🌐 on the title screen to go online — friends
+connecting to the same link share a room and see each other as ghost avatars.
+No accounts, no real names, no chat. Max 8 friends at once. COPPA-clean.

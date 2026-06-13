@@ -15,6 +15,11 @@ const ALLOWED_ORIGINS = [
   'http://localhost:8741',
 ];
 
+// friend-presence colors: one per slot (max 8 players total)
+const ROOM_COLORS = ['#7ec8f0', '#f0c07e', '#b07ef0', '#7ef0a8', '#f07e7e', '#f0e87e', '#c8f07e'];
+const ROOM_ADJ  = ['Silent', 'Golden', 'Amber', 'Wandering', 'Midnight', 'Lucky', 'Spooky'];
+const ROOM_NOUN = ['Wheat', 'Worm', 'Fox', 'Crow', 'Grin', 'Lantern', 'Owl'];
+
 const MODEL = 'claude-haiku-4-5';
 const MAX_TOKENS = 220;
 const MAX_MESSAGES = 12;
@@ -49,6 +54,13 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
     }
+    // room: friend presence via WebSocket (proxied to the Room Durable Object)
+    if (new URL(request.url).pathname === '/room') {
+      if (!env.ROOM) return new Response(JSON.stringify({ error: 'room not configured' }), { status: 503, headers: cors });
+      if (!allowed) return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: cors });
+      const stub = env.ROOM.get(env.ROOM.idFromName('main'));
+      return stub.fetch(request);
+    }
     // friendly status page — lets you verify the worker by visiting its URL
     if (request.method === 'GET' && new URL(request.url).pathname !== '/lb') {
       return new Response(JSON.stringify({
@@ -56,6 +68,7 @@ export default {
         service: 'Dr. Umbra proxy',
         keyConfigured: Boolean(env.ANTHROPIC_API_KEY),
         leaderboard: Boolean(env.LB),
+        room: Boolean(env.ROOM),
       }), { headers: { 'content-type': 'application/json' } });
     }
     if (!allowed || (request.method !== 'POST' && !(request.method === 'GET' && new URL(request.url).pathname === '/lb'))) {
@@ -159,4 +172,111 @@ export class Leaderboard {
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
+}
+
+
+// ---- the Room Durable Object (WebSocket hibernation) ----
+// One DO instance handles all connections (idFromName('main')).
+// Each WS stores its metadata via serializeAttachment so the DO can hibernate
+// between messages without losing per-connection state.
+// Hard rules: no chat, position only, max 8 friends, auto-assigned names.
+export class Room {
+  constructor(ctx) { this.ctx = ctx; }
+
+  async fetch(request) {
+    const upgrade = (request.headers.get('Upgrade') || '').toLowerCase();
+    if (upgrade !== 'websocket') {
+      // REST: count active peers (used by status checks)
+      return json({ peers: this.ctx.getWebSockets().length });
+    }
+
+    const sockets = this.ctx.getWebSockets();
+    if (sockets.length >= 8) {
+      return new Response('room full (max 8 friends)', { status: 503 });
+    }
+
+    // pick a unique name and color for this friend
+    const usedNames  = new Set(sockets.map((s) => s.deserializeAttachment()?.name).filter(Boolean));
+    const usedColors = new Set(sockets.map((s) => s.deserializeAttachment()?.colorIdx).filter((v) => v != null));
+    const name       = _roomName(usedNames);
+    const colorIdx   = _colorIdx(usedColors);
+    const id         = crypto.randomUUID().slice(0, 8);
+
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    this.ctx.acceptWebSocket(server);
+    server.serializeAttachment({ id, name, colorIdx, x: 0, z: 11, yaw: 0 });
+
+    // send welcome + current peer snapshot before the join broadcast
+    const peers = sockets.map((s) => {
+      const a = s.deserializeAttachment() || {};
+      if (!a.id) return null;
+      return { id: a.id, name: a.name, color: ROOM_COLORS[a.colorIdx ?? 0],
+               x: a.x ?? 0, z: a.z ?? 11, yaw: a.yaw ?? 0 };
+    }).filter(Boolean);
+    server.send(JSON.stringify({ type: 'welcome', id, name, color: ROOM_COLORS[colorIdx] }));
+    server.send(JSON.stringify({ type: 'state', peers }));
+
+    // tell the existing friends someone new arrived
+    const joinMsg = JSON.stringify({ type: 'joined', id, name, color: ROOM_COLORS[colorIdx] });
+    for (const s of sockets) try { s.send(joinMsg); } catch { /* stale socket */ }
+
+    return new Response(null, { status: 101, webSocket: client });
+  }
+
+  async webSocketMessage(ws, message) {
+    let data;
+    try { data = JSON.parse(message); } catch { return; }
+    const meta = ws.deserializeAttachment();
+    if (!meta?.id) return;
+
+    if (data.type === 'pos') {
+      // clamp to sane world bounds — never trust the client for broadcast
+      meta.x   = Math.max(-600, Math.min(600,   +data.x   || 0));
+      meta.z   = Math.max(-1300, Math.min(25,   +data.z   || 0));
+      meta.yaw = +data.yaw || 0;
+      ws.serializeAttachment(meta);
+      const payload = JSON.stringify({ type: 'move', id: meta.id, x: meta.x, z: meta.z, yaw: meta.yaw });
+      for (const s of this.ctx.getWebSockets()) {
+        if (s !== ws) try { s.send(payload); } catch { /* stale */ }
+      }
+    } else if (data.type === 'ping') {
+      try { ws.send(JSON.stringify({ type: 'pong' })); } catch { /* ignore */ }
+    }
+    // no chat: any other message type is silently ignored
+  }
+
+  async webSocketClose(ws) {
+    const meta = ws.deserializeAttachment();
+    if (!meta?.id) return;
+    const leaveMsg = JSON.stringify({ type: 'left', id: meta.id });
+    for (const s of this.ctx.getWebSockets()) {
+      if (s !== ws) try { s.send(leaveMsg); } catch { /* stale */ }
+    }
+  }
+
+  async webSocketError(ws) { await this.webSocketClose(ws); }
+}
+
+function _roomName(used) {
+  const adjs  = _shuffle([...ROOM_ADJ]);
+  const nouns = _shuffle([...ROOM_NOUN]);
+  for (const a of adjs) for (const n of nouns) {
+    const name = a + n;
+    if (!used.has(name)) return name;
+  }
+  return 'Friend' + (used.size + 1);
+}
+
+function _colorIdx(used) {
+  for (let i = 0; i < ROOM_COLORS.length; i++) if (!used.has(i)) return i;
+  return 0;
+}
+
+function _shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = (Math.random() * (i + 1)) | 0;
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
 }

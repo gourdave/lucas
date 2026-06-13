@@ -37,6 +37,7 @@ import { Scarecrow } from './scarecrow.js';
 import { Gate, GATE_POS } from './gate.js';
 import { Arcade, SPAWN as ARCADE_SPAWN, CABINETS, TASKS, rollTasks, markTask, exitOpen } from './arcade.js';
 import { ensurePlayDay } from './progression.js';
+import { Online } from './online.js';
 
 const WALK_SPEED = 4.2;
 const EYE = 1.62;
@@ -104,6 +105,7 @@ const gate = new Gate(scene);
 const arcade = new Arcade(scene);
 const gnome = new Gnome(scene);
 const windowFigure = new WindowFigure(scene);
+const online = new Online();
 buildBoard(scene);
 buildCarving(scene, BARN_POS);
 house.hotspots.push({ id: 'wall', x: 0.3, y: 0, z: -3.9, r: 1.4, label: '🧵  The string wall' });
@@ -143,6 +145,27 @@ document.getElementById('btn-new').addEventListener('click', () => {
 });
 document.getElementById('btn-continue').addEventListener('click', () => startGame(true));
 
+// online mode toggle on the title screen
+;(() => {
+  const btn = document.getElementById('online-toggle');
+  const lbl = document.getElementById('online-label');
+  function refresh() {
+    const on = State.online.enabled;
+    lbl.textContent = on ? 'online — tap to go offline' : 'offline — tap to play with friends';
+    btn.classList.toggle('on', on);
+  }
+  refresh();
+  btn.addEventListener('click', () => {
+    State.online.enabled = !State.online.enabled;
+    save();
+    refresh();
+    if (!playing) return;
+    if (State.online.enabled) online.connect(scene);
+    else online.disconnect();
+    UI.setOnlineStatus(online);
+  });
+})();
+
 function startGame(fromSave) {
   if (fromSave && load()) placeAtBed();
   else placeAtSpawn();
@@ -159,6 +182,8 @@ function startGame(fromSave) {
   UI.setPetsButton(unlocked('pets'));
   playing = true;
   controls.enabled = true;
+  if (State.online.enabled) online.connect(scene);
+  UI.setOnlineStatus(online);
   if (!State.flags.welcomed) {
     State.flags.welcomed = true;
     UI.toast('Level 10 — “The Bumper Crop”. The house is yours. The fields are… patient.', 5200);
@@ -1408,6 +1433,7 @@ function watchPerformance(rawDt) {
   if (slowFrames > 240) dropGfx();
 }
 window.__dropGfx = dropGfx;
+window.__online = online;
 
 let __frameCount = 0;
 function tick() {
@@ -1673,9 +1699,14 @@ function tick() {
     if (!inArcade) {
       // climbing the tower once widens the glass forever
       UI.drawMap(player.x, player.z, controls.yaw, mapMarkers(), world.fear,
-        State.flags.towerClimbed ? 280 : 170);
+        State.flags.towerClimbed ? 280 : 170, online.peerDots());
     }
   }
+
+  // --- online: broadcast position, lerp friend avatars ---
+  online.tick(player.x, player.z, controls.yaw, dt);
+  online.update(dt);
+  UI.setOnlineStatus(online);
 
   // --- audio mix ---
   audio.update(dt, world.fear, State.sanity);
