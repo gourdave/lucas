@@ -31,6 +31,8 @@ export const State = {
   digSite: null,        // { x, z, taps } — where the radio's numbers point
   digsDone: 0,
   listenersSurvived: 0, // times you froze until The Listener gave up
+  scarecrowsStared: 0,  // times you stared The Scarecrow back into the soil
+  daysPlayed: 0,        // distinct days you've survived in the fields
   mysteries: {},        // string-wall threads: { gnome: { found, solved, shots } }
   rodTier: 0,           // 0 old rod · 1 willow · 2 storm-line
   bait: { kind: null, n: 0 },   // worm | glow casts remaining
@@ -110,6 +112,8 @@ export function load() {
     State.digSite ??= null;
     State.digsDone ??= 0;
     State.listenersSurvived ??= 0;
+    State.scarecrowsStared ??= 0;
+    State.daysPlayed ??= 0;
     State.mysteries ??= {};
     State.rodTier ??= 0;
     State.bait ??= { kind: null, n: 0 };

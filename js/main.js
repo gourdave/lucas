@@ -32,6 +32,9 @@ import { todayStr } from './state.js';
 import { Maze, MAZE_POS, mazeChestAvailable } from './maze.js';
 import { Borrower } from './borrower.js';
 import { Camps, CAMP_RATE, MAX_CAMPS } from './camps.js';
+import { Tower, TOWER_POS, TOWER_TOP } from './tower.js';
+import { Scarecrow } from './scarecrow.js';
+import { ensurePlayDay } from './progression.js';
 
 const WALK_SPEED = 4.2;
 const EYE = 1.62;
@@ -93,6 +96,8 @@ const wcd = new WcDonalds(scene);
 const maze = new Maze(scene);
 const borrowerEnt = new Borrower(scene);
 const camps = new Camps(scene);
+const tower = new Tower(scene);
+const scarecrowEnt = new Scarecrow(scene);
 const gnome = new Gnome(scene);
 const windowFigure = new WindowFigure(scene);
 buildBoard(scene);
@@ -187,6 +192,8 @@ function interact() {
   else if (id === 'wall') openWall();
   else if (id === 'mazechest') openMazeChest();
   else if (id === 'campfire') campFireAction();
+  else if (id === 'tower') climbTower();
+  else if (id === 'towerdown') climbDown();
   else if (id.startsWith('plot')) usePlot(+id.slice(4));
 }
 
@@ -346,6 +353,80 @@ function campFireAction() {
     UI.toast('⛺ Camp packed up — the kit is back in your pack.');
   }
 }
+
+// ---------- the radio tower ----------
+let onTower = false;
+
+async function climbTower() {
+  busy = true;
+  controls.enabled = false;
+  UI.setPrompt(null);
+  await UI.fade(1, 1.0);
+  onTower = true;
+  player.set(TOWER_POS.x, TOWER_TOP, TOWER_POS.z);
+  controls.pitch = 0.05;
+  await UI.fade(0, 1.2);
+  controls.enabled = true;
+  busy = false;
+  if (!State.flags.towerClimbed) {
+    State.flags.towerClimbed = true;
+    bus.emit('towerClimbed', {});
+    addXp(80);
+    audio.fanfare();
+    save();
+    UI.toast('📡 The whole level, all at once. The fields go on forever — but now you know their SHAPE. Your minimap sees farther, forever.', 8500);
+  } else {
+    UI.toast('📡 Still forever. Still yours.', 4000);
+  }
+}
+
+async function climbDown() {
+  busy = true;
+  controls.enabled = false;
+  UI.setPrompt(null);
+  await UI.fade(1, 1.0);
+  onTower = false;
+  player.set(TOWER_POS.x + 3, 0, TOWER_POS.z);
+  await UI.fade(0, 1.2);
+  controls.enabled = true;
+  busy = false;
+}
+
+// ---------- The Scarecrow That Wasn't There ----------
+bus.on('scarecrowSpawn', () => {
+  audio.sting();
+  UI.toast(State.flags.metScarecrow
+    ? '🌾 The Scarecrow is back. DON\'T look away.'
+    : '🌾 A scarecrow stands in the rows ahead. You don\'t remember it being there. It moves ONLY when you look away — STARE IT DOWN.', 7500);
+  State.flags.metScarecrow = true;
+});
+bus.on('scarecrowStared', () => {
+  audio.chime();
+  Expedition.addCoins(15);
+  UI.toast(`👁 You held the stare. It sinks back into the soil, deeply embarrassed. +🪙15 pending. (stared down ×${State.scarecrowsStared})`, 5500);
+});
+bus.on('scarecrowCatch', () => {
+  if (pets.tryShield()) { UI.toast('🎃 Your Strawlem tackles its cousin! (blocked)'); audio.chime(); return; }
+  if (State.flags.dreamShield) {
+    State.flags.dreamShield = false;
+    UI.toast('The starlight grin flares — the Scarecrow flinches away from you.');
+    audio.chime();
+    return;
+  }
+  audio.sting();
+  UI.flash();
+  shake = 0.8;
+  State.sanity = Math.max(0, State.sanity - 30);
+  UI.toast('Straw fingers brush the back of your neck. When you turn — nothing. (−30 calm)');
+});
+
+bus.on('newDay', ({ n, milestone }) => {
+  audio.chime();
+  UI.setMoney(State.money);
+  UI.toast(milestone
+    ? `🗓 DAY ${n} in the fields — milestone! +🪙${milestone}. The fields are starting to respect you.`
+    : `🗓 Day ${n} in the fields.`, milestone ? 6000 : 3200);
+});
 
 // ---------- The Borrower ----------
 bus.on('borrowerSpawn', () => {
@@ -1004,6 +1085,7 @@ function cycleRadio() {
 async function wakeUp() {
   busy = true;
   inDream = false;
+  onTower = false;
   controls.enabled = false;
   UI.setDreamHud(null);
   audio.stopDream();
@@ -1105,6 +1187,7 @@ async function blackout() {
   busy = true;
   controls.enabled = false;
   fishStreak = 0;
+  onTower = false;
   State.blackouts++;
   const hadLoot = Expedition.pendingCount() > 0;
   Expedition.dropBag(player);
@@ -1130,6 +1213,7 @@ function mapMarkers() {
     { x: WCD_POS.x, z: WCD_POS.z, color: '#f2b32a' },       // WcDonald's
     { x: BARN_POS.x, z: BARN_POS.z, color: '#e85530' },     // the barn
     { x: MAZE_POS.x, z: MAZE_POS.z, color: '#7ec27e' },     // the corn maze
+    { x: TOWER_POS.x, z: TOWER_POS.z, color: '#ff5a5a' },   // the radio tower
   ];
   for (const c of State.camps) m.push({ x: c.x, z: c.z, color: '#ffa040' });
   if (State.digSite) m.push({ x: State.digSite.x, z: State.digSite.z, color: '#b8ffd0', pulse: true });
@@ -1167,6 +1251,8 @@ window.__maze = maze;
 window.__borrower = borrowerEnt;
 window.__camps = camps;
 window.__placeCamp = placeCamp;
+window.__scarecrow = scarecrowEnt;
+window.__tower = tower;
 
 // auto-quality: if a phone can't hold ~20fps for a while, quietly shed the
 // mood layers (clouds, ground fog) and drop the pixel ratio. game unchanged.
@@ -1209,7 +1295,7 @@ function tick() {
 
   // --- movement with wall sliding ---
   const mv = controls.move;
-  const moving = (mv.x !== 0 || mv.y !== 0) && controls.enabled;
+  const moving = (mv.x !== 0 || mv.y !== 0) && controls.enabled && !onTower;
   if (moving) {
     let speedMult = State.dreamPerks.includes('stride') ? 1.12 : 1;
     if (!house.isInYard(player.x, player.z)) {
@@ -1235,8 +1321,12 @@ function tick() {
     stillTime += dt;
     walkPhase *= Math.max(0, 1 - dt * 8);   // settle the bob when standing
   }
-  const groundY = house.groundHeight(player.x, player.z, player.y);
-  player.y = THREE.MathUtils.damp(player.y, groundY, 14, dt);
+  if (onTower) {
+    player.y = TOWER_TOP;   // the platform holds you; gravity can wait
+  } else {
+    const groundY = house.groundHeight(player.x, player.z, player.y);
+    player.y = THREE.MathUtils.damp(player.y, groundY, 14, dt);
+  }
 
   // --- world systems ---
   const inYard = house.isInYard(player.x, player.z);
@@ -1273,7 +1363,9 @@ function tick() {
     monsters.update(dt, player, safe);
     listenerEnt.update(dt, player, moving, world.fear, safe);
     borrowerEnt.update(dt, player, safe, Expedition.pendingCount());
+    scarecrowEnt.update(dt, player, camera, world.fear, safe || onTower);
   }
+  tower.update(State.playTime);
   if (!listenerEnt.active) audio.listenerStop();
   maze.update(dt, State.playTime, player);
   camps.update(dt, State.playTime);
@@ -1338,6 +1430,7 @@ function tick() {
     addCalm, toast: (m) => UI.toast(m), audio,
   });
   ensureDailyQuests();
+  ensurePlayDay();
 
   // --- hunger: drains slowly; an empty stomach gnaws at your calm ---
   State.hunger = Math.max(0, State.hunger - dt * 0.18);
@@ -1388,6 +1481,10 @@ function tick() {
         id: 'campfire',
         label: () => Expedition.pendingCount() > 0 ? '🔥 Bank loot here (70%)' : '⛺ Pack up camp',
       };
+    } else if (!currentHotspot && onTower) {
+      currentHotspot = { id: 'towerdown', label: '🪜 Climb back down' };
+    } else if (!currentHotspot && !onTower && tower.nearBase(player)) {
+      currentHotspot = { id: 'tower', label: '🪜 Climb the radio tower' };
     }
   }
   UI.setPrompt(currentHotspot ? (typeof currentHotspot.label === 'function' ? currentHotspot.label() : currentHotspot.label) : null);
@@ -1409,7 +1506,9 @@ function tick() {
   if (mapT <= 0) {
     mapT = 0.15;
     UI.setMapVisible(true);
-    UI.drawMap(player.x, player.z, controls.yaw, mapMarkers(), world.fear);
+    // climbing the tower once widens the glass forever
+    UI.drawMap(player.x, player.z, controls.yaw, mapMarkers(), world.fear,
+      State.flags.towerClimbed ? 280 : 170);
   }
 
   // --- audio mix ---

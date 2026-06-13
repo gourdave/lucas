@@ -297,11 +297,11 @@ export const UI = {
     if (el.classList.contains('hidden') === !on) return;
     el.classList.toggle('hidden', !on);
   },
-  drawMap(px, pz, yaw, markers, fear) {
+  drawMap(px, pz, yaw, markers, fear, range = 170) {
     const cv = $('minimap');
     const c = cv.getContext('2d');
     const S = cv.width, mid = S / 2, R = mid - 4;
-    const scale = R / 170;             // the circle shows ~170m around you
+    const scale = R / range;           // the tower widens this, once, forever
     c.clearRect(0, 0, S, S);
     c.save();
     c.beginPath();

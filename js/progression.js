@@ -211,6 +211,20 @@ export function claimQuest(index) {
   return true;
 }
 
+// ---------- the day ledger (99-Nights style: every day counts) ----------
+const DAY_MILESTONES = [[5, 50], [10, 120], [25, 300]];
+
+export function ensurePlayDay() {
+  const today = todayStr();
+  if (State.flags.lastPlayDay === today) return;
+  State.flags.lastPlayDay = today;
+  State.daysPlayed++;
+  const hit = DAY_MILESTONES.find(([n]) => n === State.daysPlayed);
+  if (hit) State.money += hit[1];
+  bus.emit('newDay', { n: State.daysPlayed, milestone: hit ? hit[1] : 0 });
+  save();
+}
+
 // ---------- the daily gift on the porch ----------
 export function chestAvailable() { return State.lastChest !== todayStr(); }
 
