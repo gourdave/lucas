@@ -13,6 +13,7 @@ export const CREATURE_DEX = {
   grin: { name: 'The Grin', emoji: '😶', hint: 'floats in the deep dark' },
   listener: { name: 'The Listener', emoji: '📡', hint: 'hears footsteps past the 120m mark' },
   borrower: { name: 'The Borrower', emoji: '🎒', hint: 'smells unbanked coins past the 100m mark' },
+  strawman: { name: 'The Scarecrow That Wasn\'t There', emoji: '🌾', hint: 'closer every time you look away, past 130m' },
   regulars: { name: 'The Regulars', emoji: '🍟', hint: 'dining quietly at the 50m mark' },
   harvester: { name: 'THE HARVESTER', emoji: '🎃', hint: 'waits at the barn, past 300m' },
 };
@@ -48,6 +49,11 @@ export const BADGES = {
   maze: { name: 'Heart of the Maze', emoji: '🌽', desc: 'Open the chest at the corn maze\'s center' },
   repo: { name: 'Give It Back', emoji: '🎒', desc: 'Make The Borrower drop your coins' },
   homestead: { name: 'Field Homestead', emoji: '⛺', desc: 'Set up a camp in the fields' },
+  tower: { name: 'Top of the World', emoji: '📡', desc: 'Climb the radio tower' },
+  staredown: { name: 'Blink First', emoji: '👁', desc: 'Stare down The Scarecrow 3 times' },
+  days5: { name: 'Settler', emoji: '🗓', desc: 'Survive 5 days in the fields' },
+  days10: { name: 'Resident', emoji: '🏡', desc: 'Survive 10 days' },
+  days25: { name: 'Old-Timer', emoji: '🌟', desc: 'Survive 25 days' },
 };
 
 function mark(list, id) {
@@ -162,6 +168,14 @@ export function initJournal() {
   bus.on('borrowerSpawn', () => mark(State.journal.creatures, 'borrower'));
   bus.on('borrowerDropped', () => awardBadge('repo'));
   bus.on('campPlaced', () => awardBadge('homestead'));
+  bus.on('towerClimbed', () => awardBadge('tower'));
+  bus.on('scarecrowSpawn', () => mark(State.journal.creatures, 'strawman'));
+  bus.on('scarecrowStared', () => { if (State.scarecrowsStared >= 3) awardBadge('staredown'); });
+  bus.on('newDay', ({ n }) => {
+    if (n >= 5) awardBadge('days5');
+    if (n >= 10) awardBadge('days10');
+    if (n >= 25) awardBadge('days25');
+  });
   bus.on('mysterySolved', ({ id }) => {
     if (id === 'gnome') awardBadge('gnomad');
     if (id === 'window') awardBadge('photoghost');

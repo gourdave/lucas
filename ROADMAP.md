@@ -63,6 +63,15 @@
   pulsing (dig sites, lost bags, Borrower stashes). Dims with dread,
   hides in dreams. Canvas 2D at ~7fps — zero GPU cost.
 
+- v13 the tower update (Phase N): THE RADIO TOWER at ~400m — the red
+  light you could always see is climbable; one look from the top widens
+  the minimap's range forever (170m → 280m) · THE SCARECROW THAT WASN'T
+  THERE — the Listener's opposite: it moves ONLY when you look away
+  (8.5 m/s, terrifying); stare it down for 3s and it sinks, embarrassed
+  (+15 pending, badge at ×3) · THE DAY LEDGER — every distinct day
+  played counts, milestones at 5/10/25 days pay coins + badges
+  (Settler / Resident / Old-Timer)
+
 ## NEXT UP
 - (nothing queued — awaiting the next batch from Lucas/David)
 
@@ -72,7 +81,7 @@ Nothing here gets forgotten. Built items move to "Shipped".
 ### Locations (the long arc — one per release)
 - ✅ The Pond (~60m, moved from 145m on David's request — fish in peace) *(v8)*
 - ✅ The Corn Maze (~250m) *(v11)*
-- The Radio Tower (~400m) — climb for a one-time view + map/compass upgrade
+- ✅ The Radio Tower *(v13)*
 - The Storm Cellar (~500m) — trapdoor mini-dungeon, best loot density,
   scariest place in the game
 - The Other House (~700m, ENDGAME) — an exact copy of your house with the
@@ -81,14 +90,13 @@ Nothing here gets forgotten. Built items move to "Shipped".
 ### Entities with learnable rules (Doors-style)
 - ✅ The Listener — moves only when you move *(v8)*
 - ✅ The Borrower *(v11)*
-- The Scarecrow That Wasn't There — closer every time you look away;
-  stare it down to win
+- ✅ The Scarecrow That Wasn't There *(v13)*
 
 ### Quests & story
 - ✅ Number stations (radio coordinates → buried cache) *(v8)*
 - Dr. Umbra multi-step requests ("I lost something out there…") — can use
   real Claude for flavor text
-- Survive-N-nights ledger with milestone rewards (5/10/25), trophy display
+- ✅ Day ledger with 5/10/25 milestones *(v13)*
 
 ### Home & systems
 - Restoration Board (Stardew community center): donate item sets to unboard
