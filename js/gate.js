@@ -1,12 +1,12 @@
-// gate.js — THE DOOR at the 1000m mark. The fields go on forever — but at
-// one exact spot, a thousand meters down the power lines, a single door
-// stands alone in the wheat. The plaque reads LEVEL 3999.
-// It is locked. The level behind it is being built by kamsamnor himself.
+// gate.js — THE DOOR at the ~320m mark (moved here by request of one of
+// kamsamnor's friends). Follow the power lines north, past the Harvester's
+// barn, and a single white door stands alone in the wheat. The plaque reads
+// LEVEL 3999. Knock and the neon swallows you whole.
 
 import * as THREE from 'three';
 import { glowSprite } from './gfx.js';
 
-export const GATE_POS = { x: 0, z: -1000 };   // follow the power lines. keep going.
+export const GATE_POS = { x: 0, z: -318 };   // ~320m — just past the barn, on the power line
 
 export class Gate {
   constructor(scene) {

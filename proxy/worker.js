@@ -54,11 +54,16 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors });
     }
-    // room: friend presence via WebSocket (proxied to the Room Durable Object)
+    // room: friend presence via WebSocket. Handled by the SAME Durable Object
+    // class as the leaderboard (see the note on the class below) — just a
+    // different named instance, so the two never share storage. We accept the
+    // ROOM binding if it exists, otherwise fall back to the LB binding (both
+    // point at the same class, so either works).
     if (new URL(request.url).pathname === '/room') {
-      if (!env.ROOM) return new Response(JSON.stringify({ error: 'room not configured' }), { status: 503, headers: cors });
+      const ns = env.ROOM || env.LB;
+      if (!ns) return new Response(JSON.stringify({ error: 'room not configured' }), { status: 503, headers: cors });
       if (!allowed) return new Response(JSON.stringify({ error: 'forbidden' }), { status: 403, headers: cors });
-      const stub = env.ROOM.get(env.ROOM.idFromName('main'));
+      const stub = ns.get(ns.idFromName('room-main'));
       return stub.fetch(request);
     }
     // friendly status page — lets you verify the worker by visiting its URL
@@ -68,7 +73,7 @@ export default {
         service: 'Dr. Umbra proxy',
         keyConfigured: Boolean(env.ANTHROPIC_API_KEY),
         leaderboard: Boolean(env.LB),
-        room: Boolean(env.ROOM),
+        room: Boolean(env.ROOM || env.LB),
       }), { headers: { 'content-type': 'application/json' } });
     }
     if (!allowed || (request.method !== 'POST' && !(request.method === 'GET' && new URL(request.url).pathname === '/lb'))) {
@@ -129,11 +134,26 @@ export default {
 };
 
 
-// ---- the leaderboard Durable Object (SQLite-backed, auto-provisioned) ----
+// ---- the shared Durable Object (SQLite-backed, auto-provisioned) ----
+//
+// One class, two jobs. The Cloudflare dashboard only lets you bind Durable
+// Object classes it has already registered a namespace for, and this worker
+// only ever registered ONE (`lucas_leaderboard`, class `Leaderboard`). Rather
+// than fight the dashboard to register a second class for the friend room, the
+// SAME class handles both:
+//   • the `global` instance keeps the high-score leaderboard (HTTP)
+//   • a separate `room-main` instance relays live friend positions (WebSocket)
+// Different named instances get separate storage, so the two never collide.
+//
+// Friend room hard rules: position only, no chat, max 8 friends, auto names.
 export class Leaderboard {
   constructor(ctx) { this.ctx = ctx; }
 
   async fetch(request) {
+    // a WebSocket upgrade means a friend is joining the live room
+    const upgrade = (request.headers.get('Upgrade') || '').toLowerCase();
+    if (upgrade === 'websocket') return this.roomConnect(request);
+
     const url = new URL(request.url);
     const all = (await this.ctx.storage.get('scores')) || {};
 
@@ -168,28 +188,11 @@ export class Leaderboard {
       .slice(0, 15);
     return json({ board, top });
   }
-}
 
-function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
-}
-
-
-// ---- the Room Durable Object (WebSocket hibernation) ----
-// One DO instance handles all connections (idFromName('main')).
-// Each WS stores its metadata via serializeAttachment so the DO can hibernate
-// between messages without losing per-connection state.
-// Hard rules: no chat, position only, max 8 friends, auto-assigned names.
-export class Room {
-  constructor(ctx) { this.ctx = ctx; }
-
-  async fetch(request) {
-    const upgrade = (request.headers.get('Upgrade') || '').toLowerCase();
-    if (upgrade !== 'websocket') {
-      // REST: count active peers (used by status checks)
-      return json({ peers: this.ctx.getWebSockets().length });
-    }
-
+  // ---- the live friend room (WebSocket hibernation) ----
+  // Each WS stores its metadata via serializeAttachment so the DO can hibernate
+  // between messages without losing per-connection state.
+  roomConnect(request) {
     const sockets = this.ctx.getWebSockets();
     if (sockets.length >= 8) {
       return new Response('room full (max 8 friends)', { status: 503 });
@@ -256,6 +259,10 @@ export class Room {
   }
 
   async webSocketError(ws) { await this.webSocketClose(ws); }
+}
+
+function json(obj, status = 200) {
+  return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
 }
 
 function _roomName(used) {

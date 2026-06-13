@@ -431,7 +431,7 @@ async function climbDown() {
   busy = false;
 }
 
-// ---------- the door at the 1000m mark: LEVEL 3999 is OPEN ----------
+// ---------- the door at the ~320m mark: LEVEL 3999 is OPEN ----------
 async function tryGate() {
   busy = true;
   controls.enabled = false;
@@ -450,7 +450,7 @@ async function tryGate() {
     addXp(100);
     bus.emit('enteredArcade', {});
     save();
-    UI.toast('🕹 LEVEL 3999 — "THE TRUE ENDING". A retro arcade, neon and humming, a thousand meters from anywhere. Nothing here hunts. Check the ESCAPE TASKS board — finish the list and the EXIT opens.', 10000);
+    UI.toast('🕹 LEVEL 3999 — "THE TRUE ENDING". A retro arcade, neon and humming, far below the fields. Nothing here hunts. Check the ESCAPE TASKS board — finish the list and the EXIT opens.', 10000);
   } else {
     UI.toast('🕹 Level 3999. The machines remember you.', 4000);
   }
@@ -1375,7 +1375,7 @@ function mapMarkers() {
     { x: BARN_POS.x, z: BARN_POS.z, color: '#e85530' },     // the barn
     { x: MAZE_POS.x, z: MAZE_POS.z, color: '#7ec27e' },     // the corn maze
     { x: TOWER_POS.x, z: TOWER_POS.z, color: '#ff5a5a' },   // the radio tower
-    { x: GATE_POS.x, z: GATE_POS.z, color: '#f0ead8' },     // THE DOOR (1000m)
+    { x: GATE_POS.x, z: GATE_POS.z, color: '#f0ead8' },     // THE DOOR (~320m)
   ];
   for (const c of State.camps) m.push({ x: c.x, z: c.z, color: '#ffa040' });
   if (State.digSite) m.push({ x: State.digSite.x, z: State.digSite.z, color: '#b8ffd0', pulse: true });
