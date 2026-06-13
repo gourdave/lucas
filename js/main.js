@@ -37,6 +37,7 @@ import { Scarecrow } from './scarecrow.js';
 import { Gate, GATE_POS } from './gate.js';
 import { Cellar, CELLAR_POS, CELLAR_SPAWN, cellarChestAvailable } from './cellar.js';
 import { Restoration } from './restoration.js';
+import { OtherHouse, OTHER_POS, otherChestAvailable } from './othershouse.js';
 import { Arcade, SPAWN as ARCADE_SPAWN, CABINETS, TASKS, rollTasks, markTask, exitOpen } from './arcade.js';
 import { ensurePlayDay } from './progression.js';
 import { Online } from './online.js';
@@ -106,6 +107,7 @@ const tower = new Tower(scene);
 const scarecrowEnt = new Scarecrow(scene);
 const gate = new Gate(scene);
 const cellar = new Cellar(scene);
+const otherHouse = new OtherHouse(scene);
 const restoration = new Restoration(scene);
 const arcade = new Arcade(scene);
 const gnome = new Gnome(scene);
@@ -274,6 +276,7 @@ function interact() {
   else if (id === 'cellarladder') exitCellar(false);
   else if (id === 'cellarchest') openCellarChest();
   else if (id === 'cellarcrate') searchCellarCrate();
+  else if (id === 'otherchest') openOtherChest();
   else if (id.startsWith('cab:')) playCabinet(id.slice(4));
   else if (id === 'slushie') drinkSlushie();
   else if (id === 'token') grabToken();
@@ -585,6 +588,19 @@ function searchCellarCrate() {
   if (r.item) Expedition.addItem(r.item);
   UI.toast(`📦 +🪙${r.coins} pending${r.item ? ` + ${r.itemLabel}` : ''}. The shelves remember every hand that's searched them.`, 5000);
   save();
+}
+
+// ---------- the Other House (~700m, endgame) ----------
+function openOtherChest() {
+  const r = otherHouse.openChest();
+  if (!r) { UI.toast('The chest sits open and empty. Whatever was in it, you already carry.'); return; }
+  audio.fanfare();
+  Expedition.addCoins(r.coins);
+  Expedition.addItem({ kind: 'egg', tier: r.eggTier, mult: 3 });
+  State.stardust += r.stardust;
+  addXp(150);
+  save();
+  UI.toast(`✨ A LEGENDARY chest — the best thing in the fields. +🪙${r.coins} pending + a Midnight Egg + ${r.stardust}✨. Now carry it 700m home. The Bravery on this will be enormous… if you make it.`, 9500);
 }
 
 // ---------- inside Level 3999 ----------
@@ -1536,6 +1552,7 @@ function mapMarkers() {
     { x: GATE_POS.x, z: GATE_POS.z, color: '#f0ead8' },     // THE DOOR (~320m)
   ];
   if (State.flags.sawCellar) m.push({ x: CELLAR_POS.x, z: CELLAR_POS.z, color: '#c08a4a' });  // storm cellar
+  if (State.flags.sawOtherHouse) m.push({ x: OTHER_POS.x, z: OTHER_POS.z, color: '#c98aff' }); // the Other House
   for (const c of State.camps) m.push({ x: c.x, z: c.z, color: '#ffa040' });
   if (State.digSite) m.push({ x: State.digSite.x, z: State.digSite.z, color: '#b8ffd0', pulse: true });
   if (State.lostBag) m.push({ x: State.lostBag.x, z: State.lostBag.z, color: '#ffe9a0', pulse: true });
@@ -1576,6 +1593,7 @@ window.__scarecrow = scarecrowEnt;
 window.__tower = tower;
 window.__cellar = cellar;
 window.__enterCellar = enterCellar;
+window.__otherHouse = otherHouse;
 
 // auto-quality: if a phone can't hold ~20fps for a while, quietly shed the
 // mood layers (clouds, ground fog) and drop the pixel ratio. game unchanged.
@@ -1633,15 +1651,16 @@ function tick() {
     const out2 = maze.collide(player.x, player.z, out.x, out.z);
     const out3 = arcade.collide(player.x, player.z, out2.x, out2.z);
     const out4 = cellar.collide(player.x, player.z, out3.x, out3.z);
-    player.x = out4.x;
-    player.z = out4.z;
+    const out5 = otherHouse.collide(player.x, player.z, out4.x, out4.z, player.y);
+    player.x = out5.x;
+    player.z = out5.z;
     stillTime = 0;
     // walking bob + a footstep at each end of the sway
     walkPhase += dt * 7.2;
     const side = Math.sin(walkPhase) > 0 ? 1 : -1;
     if (side !== lastStepSide) {
       lastStepSide = side;
-      audio.step(house.isInside(player.x, player.z) || player.y > 1.5 ? 'wood' : 'grass');
+      audio.step(house.isInside(player.x, player.z) || otherHouse.isInside(player.x, player.z) || player.y > 1.5 ? 'wood' : 'grass');
     }
   } else {
     stillTime += dt;
@@ -1650,7 +1669,9 @@ function tick() {
   if (onTower) {
     player.y = TOWER_TOP;   // the platform holds you; gravity can wait
   } else {
-    const groundY = house.groundHeight(player.x, player.z, player.y);
+    const groundY = otherHouse.isNear(player.x, player.z)
+      ? otherHouse.groundHeight(player.x, player.z, player.y)   // the Other House has its own stairs
+      : house.groundHeight(player.x, player.z, player.y);
     player.y = THREE.MathUtils.damp(player.y, groundY, 14, dt);
   }
 
@@ -1685,7 +1706,8 @@ function tick() {
   const inCamp = camps.inCamp(player);
   const inArcade = arcade.inside(player);
   inCellar = cellar.inside(player);
-  const safe = inYard || inCamp || inArcade || inCellar;   // the cellar keeps surface things out
+  const inOther = otherHouse.isInside(player.x, player.z);
+  const safe = inYard || inCamp || inArcade || inCellar || inOther;   // sheltered spots keep surface things out
   world.lowFog = inArcade;
   arcade.update(dt, State.playTime, player);
   if (inArcade) audio.startArcade();
@@ -1708,6 +1730,7 @@ function tick() {
   }
   tower.update(State.playTime);
   gate.update(State.playTime);
+  otherHouse.update(State.playTime);
   restoration.update(State.playTime);
   if (!listenerEnt.active) audio.listenerStop();
   maze.update(dt, State.playTime, player);
@@ -1721,6 +1744,11 @@ function tick() {
     State.flags.sawCellar = true;
     save();
     UI.toast('🚪 A pair of steel bulkhead doors, half-swallowed by the wheat. A storm cellar. Warm light leaks from the seam — something\'s still on down there.', 7500);
+  }
+  if (!State.flags.sawOtherHouse && otherHouse.sawArea(player)) {
+    State.flags.sawOtherHouse = true;
+    save();
+    UI.toast('🏚 A house. Out here, at the 700m mark, every window lit warm. It is YOUR house — the same porch, the same windows. It should not be here. The door is open.', 9000);
   }
   pond.update(dt, world.fear);
   digMarker.update(State.playTime);
@@ -1796,6 +1824,7 @@ function tick() {
     delta += cellar.litAt(player) ? -0.4 : -3.2;
     if (cellar.dwellerWoke && !cellar.litAt(player)) delta -= 2.0;
   }
+  else if (inOther) delta += 1.0;      // the Other House is shelter — but it's wrong, so it never fully calms
   else if (inYard) delta += 1.6;
   else if (inCamp) delta += 2.2;       // the fire keeps the dark honest
   else {
@@ -1845,6 +1874,10 @@ function tick() {
         const ci = cellar.nearCrate(player);
         if (ci >= 0) currentHotspot = { id: 'cellarcrate', label: cellar.crateSearched(ci) ? '📦 Crate (already searched)' : '📦 Search the crate' };
       }
+    }
+    // the legendary chest, upstairs in the Other House
+    if (!currentHotspot && otherHouse.nearChest(player)) {
+      currentHotspot = { id: 'otherchest', label: '✨ Open the chest' };
     }
     // field "hotspots" — the dock, any active dig site, and the counter
     if (!currentHotspot && pond.near(player)) {

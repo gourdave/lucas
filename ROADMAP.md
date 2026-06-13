@@ -117,11 +117,24 @@
   warm light. Donations bank coins/stardust/XP. Badges: Handy (first
   project), The House Restored (capstone).
 
-## NEXT UP — the location arc continues:
-1. **THE OTHER HOUSE (~700m, ENDGAME)** — an exact copy of your house with
-   the lights on, slightly wrong inside, legendary chest upstairs. (Online
-   mode shipped v15/16; Storm Cellar shipped v17. David parked ghost-mode /
-   live-coop refinements for later.)
+- v19 THE OTHER HOUSE (Phase S, the ENDGAME, ~700m): an exact copy of your
+  house down the power lines — same porch, same windows, every one lit warm
+  out in the dark where no house should be. Walk in: it's almost right. A
+  chair faces the corner, the clock runs backward, there's a second bed,
+  the therapist's lamp is on but his chair is empty. Climb the stairs to
+  the bedroom and a LEGENDARY chest waits on the nightstand — a one-time
+  haul (600 coins + a Midnight Egg + 150 stardust) you then have to carry
+  700m home, for an enormous Bravery payout… if you make it. Sheltered
+  inside (no entities) but it never fully calms — it knows it's a copy.
+  Badge: The Other House. This completes the distance-gated location arc.
+
+## NEXT UP — the location arc is COMPLETE. Remaining ideas:
+- The replayability / "keep collecting" loop is the long game now: the
+  journal completion meter (fish/creature/tape/badge/pet/crop/dream dexes)
+  → "Curator of Level 10" + golden porch light; daily systems tick forever.
+- Parked systems still open: Dr. Umbra multi-step quests, crop mutations,
+  pet levels, weather days. (Online mode shipped v15/16; ghost-mode /
+  live-coop refinements parked by David.)
 
 ## Multiplayer feasibility note (researched constraints, 2026-06-13)
 - Full live co-op = WebSocket relay via the existing Durable Object —
@@ -144,7 +157,7 @@ Nothing here gets forgotten. Built items move to "Shipped".
 - ✅ The Radio Tower *(v13)*
 - ✅ The Storm Cellar (~500m) — trapdoor mini-dungeon, best loot density,
   scariest place in the game *(v17)*
-- The Other House (~700m, ENDGAME) — an exact copy of your house with the
+- ✅ The Other House (~700m, ENDGAME) *(v19)* — an exact copy of your house with the
   lights on, slightly wrong inside, legendary chest upstairs
 
 ### Entities with learnable rules (Doors-style)

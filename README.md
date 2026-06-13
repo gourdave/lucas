@@ -41,6 +41,11 @@ as long as you stay close to home.
   **can't come into the light** — stay in the bulbs, fire a flare to blast it
   back, and carry your loot up to the daylight. (You can't die. If it catches
   you, the cellar puts you back on the surface and your bag's by the doors.)
+- **The Other House** — keep going, all the way to the 700m mark, and you'll
+  find a house with the lights on. It's *your* house — same porch, same
+  windows — and it should not be out here. Go inside. It's almost right.
+  Upstairs there's a **legendary chest** with the best treasure in the game…
+  now get it all the way home.
 - **Almond water** is hidden in the far fields. Drink it when the edges of
   your eyes go dark.
 - You cannot die. If the dark catches up with you, the fields carry you home.

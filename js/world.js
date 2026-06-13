@@ -15,11 +15,15 @@ import { POND_POS, POND_R, RIVER_POINTS } from './fishing.js';
 import { WCD_POS, WCD_R } from './wcdonalds.js';
 import { BARN_POS } from './boss.js';
 import { ARCADE_POS, ARCADE_W, ARCADE_D } from './arcade.js';
+import { OTHER_POS } from './othershouse.js';
 import { contactDisc } from './gfx.js';
 
 function inArcadeFootprint(x, z) {
   return Math.abs(x - ARCADE_POS.x) < ARCADE_W / 2 + 3 &&
          Math.abs(z - ARCADE_POS.z) < ARCADE_D / 2 + 3;
+}
+function inOtherFootprint(x, z) {   // the Other House clearing (~700m)
+  return Math.abs(x - OTHER_POS.x) < 7.5 && Math.abs(z - OTHER_POS.z) < 6.5;
 }
 
 const CHUNK = 40;
@@ -551,6 +555,7 @@ export class World {
       if (Math.hypot(x - WCD_POS.x, z - WCD_POS.z) < WCD_R) used = false;          // the restaurant
       if (used && nearRiver(x, z, 3.4)) used = false;                              // the river
       if (used && inArcadeFootprint(x, z)) used = false;                           // Level 3999
+      if (used && inOtherFootprint(x, z)) used = false;                            // The Other House
       const s = used ? 0.75 + rnd() * 0.6 : 0.0001;   // chest-high at most
       _pos.set(x, 0, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
@@ -572,6 +577,7 @@ export class World {
       if (Math.hypot(x - WCD_POS.x, z - WCD_POS.z) < WCD_R - 1) used = false;
       if (used && nearRiver(x, z, 2.6)) used = false;
       if (used && inArcadeFootprint(x, z)) used = false;
+      if (used && inOtherFootprint(x, z)) used = false;
       const s = used ? 0.7 + rnd() * 0.9 : 0.0001;
       _pos.set(x, 0, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
@@ -589,7 +595,7 @@ export class World {
       const z = bz + rnd() * 2.5;
       const used = hasTrees && Math.hypot(x, z) > 26 &&
         Math.hypot(x - WCD_POS.x, z - WCD_POS.z) > WCD_R + 3 &&
-        !inArcadeFootprint(x, z);
+        !inArcadeFootprint(x, z) && !inOtherFootprint(x, z);
       const s = used ? 0.8 + rnd() * 0.8 : 0.0001;
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
       _pos.set(x, 1.3 * s, z); _scl.set(s, s, s);
@@ -607,7 +613,7 @@ export class World {
       const used = rnd() < 0.55 && Math.hypot(x, z) > 22 &&
         Math.hypot(x - WCD_POS.x, z - WCD_POS.z) > WCD_R &&
         Math.hypot(x - POND_POS.x, z - POND_POS.z) > POND_R &&
-        !inArcadeFootprint(x, z);
+        !inArcadeFootprint(x, z) && !inOtherFootprint(x, z);
       const s = used ? 0.5 + rnd() * 0.9 : 0.0001;
       _pos.set(x, 0.45 * s, z);
       _quat.setFromAxisAngle(_up, rnd() * Math.PI * 2);
