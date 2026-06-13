@@ -34,6 +34,7 @@ import { Borrower } from './borrower.js';
 import { Camps, CAMP_RATE, MAX_CAMPS } from './camps.js';
 import { Tower, TOWER_POS, TOWER_TOP } from './tower.js';
 import { Scarecrow } from './scarecrow.js';
+import { Gate, GATE_POS } from './gate.js';
 import { ensurePlayDay } from './progression.js';
 
 const WALK_SPEED = 4.2;
@@ -98,6 +99,7 @@ const borrowerEnt = new Borrower(scene);
 const camps = new Camps(scene);
 const tower = new Tower(scene);
 const scarecrowEnt = new Scarecrow(scene);
+const gate = new Gate(scene);
 const gnome = new Gnome(scene);
 const windowFigure = new WindowFigure(scene);
 buildBoard(scene);
@@ -194,6 +196,7 @@ function interact() {
   else if (id === 'campfire') campFireAction();
   else if (id === 'tower') climbTower();
   else if (id === 'towerdown') climbDown();
+  else if (id === 'gate') tryGate();
   else if (id.startsWith('plot')) usePlot(+id.slice(4));
 }
 
@@ -390,6 +393,18 @@ async function climbDown() {
   await UI.fade(0, 1.2);
   controls.enabled = true;
   busy = false;
+}
+
+// ---------- the door at the 1000m mark ----------
+function tryGate() {
+  audio.blip();
+  audio.whisperNow();
+  UI.toast('🚪 The knob doesn\'t turn. From the other side: faint music? Laughter? A plaque reads LEVEL 3999 — and underneath, freshly carved: "under construction — kamsamnor". He\'s still building it.', 9500);
+  if (!State.flags.knockedGate) {
+    State.flags.knockedGate = true;
+    addXp(100);
+    save();
+  }
 }
 
 // ---------- The Scarecrow That Wasn't There ----------
@@ -1214,6 +1229,7 @@ function mapMarkers() {
     { x: BARN_POS.x, z: BARN_POS.z, color: '#e85530' },     // the barn
     { x: MAZE_POS.x, z: MAZE_POS.z, color: '#7ec27e' },     // the corn maze
     { x: TOWER_POS.x, z: TOWER_POS.z, color: '#ff5a5a' },   // the radio tower
+    { x: GATE_POS.x, z: GATE_POS.z, color: '#f0ead8' },     // THE DOOR (1000m)
   ];
   for (const c of State.camps) m.push({ x: c.x, z: c.z, color: '#ffa040' });
   if (State.digSite) m.push({ x: State.digSite.x, z: State.digSite.z, color: '#b8ffd0', pulse: true });
@@ -1366,6 +1382,7 @@ function tick() {
     scarecrowEnt.update(dt, player, camera, world.fear, safe || onTower);
   }
   tower.update(State.playTime);
+  gate.update(State.playTime);
   if (!listenerEnt.active) audio.listenerStop();
   maze.update(dt, State.playTime, player);
   camps.update(dt, State.playTime);
@@ -1485,6 +1502,8 @@ function tick() {
       currentHotspot = { id: 'towerdown', label: '🪜 Climb back down' };
     } else if (!currentHotspot && !onTower && tower.nearBase(player)) {
       currentHotspot = { id: 'tower', label: '🪜 Climb the radio tower' };
+    } else if (!currentHotspot && gate.near(player)) {
+      currentHotspot = { id: 'gate', label: '🚪 Try the door' };
     }
   }
   UI.setPrompt(currentHotspot ? (typeof currentHotspot.label === 'function' ? currentHotspot.label() : currentHotspot.label) : null);

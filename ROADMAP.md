@@ -72,8 +72,34 @@
   played counts, milestones at 5/10/25 days pay coins + badges
   (Settler / Resident / Old-Timer)
 
-## NEXT UP
-- (nothing queued — awaiting the next batch from Lucas/David)
+- v13.1 THE DOOR (teaser): at exactly 1000m down the power lines, a
+  single locked door stands in the wheat. Warm light pulses underneath;
+  faint music behind it. Plaque: "LEVEL 3999 — under construction —
+  kamsamnor". Door Knocker badge at the 1000m mark.
+
+## NEXT UP — decided by Lucas (2026-06-13, via text):
+1. **LEVEL 3999 — "The True Ending"** (the next MAJOR build): behind the
+   1000m door, a massive neon-lit RETRO ARCADE — safe haven, no hostile
+   entities, calming ambiance that restores sanity, classic playable
+   arcade cabinets (we already have a minigame engine from the dreams),
+   and a RANDOMIZED TASK LIST that, when completed, opens the EXIT and
+   rolls the TRUE ENDING (credits: "created by kamsamnor") — then
+   returns you to your bed with a massive reward. Per Lucas: the world
+   itself runs FOREVER; the ending is a thing you earn, not a stop.
+2. **ONLINE MODE** ("can there be online mode… like servers") — needs
+   David's go/no-go on approach (see multiplayer note below).
+
+## Multiplayer feasibility note (researched constraints, 2026-06-13)
+- Full live co-op = WebSocket relay via the existing Durable Object —
+  technically possible but heavy: netcode, interpolation, abuse surface,
+  and COPPA exposure (real-time interaction between minors).
+- RECOMMENDED FIRST STEP — "GHOST MODE": async multiplayer through the
+  existing leaderboard worker. Players' journeys leave anonymous traces
+  (ghostly footprint trails, abandoned camp echoes, "someone dug here"
+  marks) fetched read-only, attributed only to auto-generated names.
+  No chat, no live presence, no personal data → COPPA-clean, zero new
+  infrastructure, feels ALIVE. Doors-style "other players were here."
+- NO chat in any version. Hard rule unless lawyers say otherwise.
 
 ## The idea ledger (from the Stardew/Minecraft/Roblox brainstorm, 2026-06-12)
 Nothing here gets forgotten. Built items move to "Shipped".
