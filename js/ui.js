@@ -134,6 +134,8 @@ export const MEALS = {
   burger: { name: 'wheaty burger', emoji: '🍔', hunger: 45, calm: 10 },
   fries: { name: 'golden fries', emoji: '🍟', hunger: 20, calm: 15 },
   shake: { name: 'almond shake', emoji: '🥤', hunger: 10, calm: 25, drink: true },
+  rawfish: { name: 'raw fish', emoji: '🐟', hunger: 8, calm: 0 },
+  fishdinner: { name: 'fish dinner', emoji: '🍲', hunger: 50, calm: 25 },
 };
 
 export const UI = {
@@ -490,7 +492,7 @@ export const UI = {
   // phases: cast (wait for the bite) → reel (the ReelGame) → reveal → done.
   // onEvent('bite'|'caught'|'escaped') lets main.js play sounds; onDone gets
   // 'caught' | 'escaped' | 'cancel'.
-  openFishing(fishId, onEvent, onDone) {
+  openFishing(fishId, onEvent, onDone, opts = {}) {
     const wrap = $('fishpanel');
     const msg = $('fishmsg');
     const track = $('fishtrack');
@@ -574,7 +576,7 @@ export const UI = {
         }, result === 'caught' ? 1800 : 1300);
       };
       raf = requestAnimationFrame(loop);
-    }, 1100 + Math.random() * 1700);
+    }, opts.fastBite ? 400 + Math.random() * 600 : 1100 + Math.random() * 1700);
   },
 
   // ---------- generic picker (seeds, eggs) ----------

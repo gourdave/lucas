@@ -102,7 +102,11 @@ export const Expedition = {
       if (item.kind === 'egg') State.pets.eggs.push({ tier: item.tier, mult: item.mult || 1, foundAt: gameNow() });
       if (item.kind === 'seed') State.seeds[item.crop] = (State.seeds[item.crop] || 0) + 1;
       if (item.kind === 'tape' && item.id && !State.tapes.includes(item.id)) State.tapes.push(item.id);
-      if (item.kind === 'fish') State.fish[item.id] = (State.fish[item.id] || 0) + 1;
+      if (item.kind === 'fish') {
+        State.fish[item.id] = (State.fish[item.id] || 0) + 1;
+        // a banked fish is also dinner waiting to happen (boots are not)
+        if (item.id !== 'boot') State.inventory.food.rawfish = (State.inventory.food.rawfish || 0) + 1;
+      }
     }
     const hadLoot = banked > 0 || items.length > 0;
     if (hadLoot) addXp(banked / 2 + items.length * 12 + Math.min(40, e.peak / 10));
