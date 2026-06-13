@@ -186,8 +186,8 @@ document.addEventListener('keydown', (e) => {
   if (online.connected && playing) {
     controls.releaseLock?.();
     UI.toggleFriendChat((text) => {
-      online.sendChat(text);
-      UI.addFriendMsg('You', text, online.myColor || '#7ec8f0');
+      const sent = online.sendChat(text);
+      if (sent.trim()) UI.addFriendMsg('You', sent, online.myColor || '#7ec8f0');
     });
   }
 });
@@ -195,8 +195,8 @@ document.getElementById('onlinechip').addEventListener('click', () => {
   if (online.connected && playing) {
     controls.releaseLock?.();
     UI.toggleFriendChat((text) => {
-      online.sendChat(text);
-      UI.addFriendMsg('You', text, online.myColor || '#7ec8f0');
+      const sent = online.sendChat(text);
+      if (sent.trim()) UI.addFriendMsg('You', sent, online.myColor || '#7ec8f0');
     });
   }
 });

@@ -22,7 +22,7 @@ const ROOM_NOUN = ['Wheat', 'Worm', 'Fox', 'Crow', 'Grin', 'Lantern', 'Owl'];
 
 // bump this whenever you deploy so you can confirm the new code is live by
 // visiting the worker URL and checking the "version" field.
-const WORKER_VERSION = 'v15-rooms-chat-stats';
+const WORKER_VERSION = 'v16-profanity';
 
 const MODEL = 'claude-haiku-4-5';
 const MAX_TOKENS = 220;
@@ -342,8 +342,9 @@ export class Leaderboard {
         if (s !== ws) try { s.send(payload); } catch { /* stale */ }
       }
     } else if (data.type === 'chat') {
-      // relay chat to everyone else in the room; strip control chars, cap at 140
-      const text = String(data.text || '').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 140);
+      // relay chat to everyone else: strip control chars, cap at 140, then run
+      // the profanity filter server-side (a hacked client can't bypass this).
+      const text = cleanProfanity(String(data.text || '').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 140));
       if (text.trim()) {
         const payload = JSON.stringify({ type: 'chat', id: meta.id, name: meta.name, text });
         for (const s of this.ctx.getWebSockets()) {
@@ -413,6 +414,46 @@ function statsHtml(s) {
 
 function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: { 'content-type': 'application/json' } });
+}
+
+// ---- profanity filter (KEEP IN SYNC with js/profanity.js on the client) ----
+// Server-side copy is authoritative: even a hacked client can't relay dirty
+// text to anyone else. Catches leetspeak, punctuation-spacing, stretched letters.
+const _LEET = { '0':'o','1':'i','2':'z','3':'e','4':'a','5':'s','6':'g','7':'t','8':'b','9':'g','@':'a','$':'s','!':'i','+':'t','|':'i' };
+const _BASE = [
+  'fuck','shit','bitch','cunt','asshole','ass','arse','dick','piss','bastard',
+  'slut','whore','fag','faggot','nigger','nigga','cock','pussy','douche','retard',
+  'damn','crap','hell','wtf','stfu','gtfo','prick','twat','wank','bollocks',
+  'dumbass','jackass','bullshit','motherfucker','boner','penis','vagina','sex',
+  'porn','nazi','kkk','dildo','hoe','skank','tit','tits','pube',
+];
+const _HARD = ['fuck','shit','bitch','nigger','nigga','faggot','asshole','motherfuck','bullshit'];
+const _WORDS = new Set();
+for (const w of _BASE) {
+  _WORDS.add(w);
+  const c = w.replace(/(.)\1+/g, '$1');
+  if (c !== w && c.length >= 4) _WORDS.add(c);
+}
+function _profNorms(token) {
+  const low = token.toLowerCase();
+  const plain = low.replace(/[^a-z]/g, '');
+  const leet  = low.split('').map((ch) => _LEET[ch] || ch).join('').replace(/[^a-z]/g, '');
+  return plain === leet ? [plain] : [plain, leet];
+}
+function _profBad(token) {
+  for (const base of _profNorms(token)) {
+    if (!base) continue;
+    const coll = base.replace(/(.)\1+/g, '$1');
+    if (_WORDS.has(base) || _WORDS.has(coll)) return true;
+    for (const w of _HARD) { if (base.includes(w) || coll.includes(w)) return true; }
+  }
+  return false;
+}
+function cleanProfanity(text) {
+  return String(text).split(/(\s+)/).map((tok) => {
+    if (!tok || /^\s+$/.test(tok)) return tok;
+    return _profBad(tok) ? '*'.repeat(Math.min(tok.length, 15)) : tok;
+  }).join('');
 }
 
 function _roomName(used) {

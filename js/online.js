@@ -7,6 +7,7 @@
 
 import * as THREE from 'three';
 import { PROXY_URL } from './therapist.js';
+import { clean } from './profanity.js';
 
 const _BASE   = PROXY_URL.replace(/\/$/, '').replace('https://', 'wss://').replace('http://', 'ws://');
 const ROOM_WS = _BASE + '/room';   // ?code=XXXX appended on connect
@@ -53,10 +54,12 @@ export class Online {
     }
   }
 
+  // returns the cleaned text actually sent (so the local echo matches), or ''
   sendChat(text) {
-    if (this.ws?.readyState !== 1) return;
-    const t = String(text || '').trim().slice(0, 140);
-    if (t) this.ws.send(JSON.stringify({ type: 'chat', text: t }));
+    if (this.ws?.readyState !== 1) return '';
+    const t = clean(String(text || '').trim().slice(0, 140));
+    if (t.trim()) this.ws.send(JSON.stringify({ type: 'chat', text: t }));
+    return t;
   }
 
   disconnect() {
