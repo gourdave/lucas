@@ -36,6 +36,7 @@ import { Tower, TOWER_POS, TOWER_TOP } from './tower.js';
 import { Scarecrow } from './scarecrow.js';
 import { Gate, GATE_POS } from './gate.js';
 import { Cellar, CELLAR_POS, CELLAR_SPAWN, cellarChestAvailable } from './cellar.js';
+import { Restoration } from './restoration.js';
 import { Arcade, SPAWN as ARCADE_SPAWN, CABINETS, TASKS, rollTasks, markTask, exitOpen } from './arcade.js';
 import { ensurePlayDay } from './progression.js';
 import { Online } from './online.js';
@@ -105,6 +106,7 @@ const tower = new Tower(scene);
 const scarecrowEnt = new Scarecrow(scene);
 const gate = new Gate(scene);
 const cellar = new Cellar(scene);
+const restoration = new Restoration(scene);
 const arcade = new Arcade(scene);
 const gnome = new Gnome(scene);
 const windowFigure = new WindowFigure(scene);
@@ -112,6 +114,7 @@ const online = new Online();
 buildBoard(scene);
 buildCarving(scene, BARN_POS);
 house.hotspots.push({ id: 'wall', x: 0.3, y: 0, z: -3.9, r: 1.4, label: '🧵  The string wall' });
+house.hotspots.push({ id: 'restore', x: -4.2, y: 0, z: -3.9, r: 1.2, label: '🪛  The restoration board' });
 const allHotspots = () => house.hotspots.concat(garden.plotHotspots());
 const dreams = new Dreams();
 const therapist = buildTherapist(scene);
@@ -213,6 +216,7 @@ function startGame(fromSave) {
   UI.setHunger(State.hunger);
   UI.setMoney(State.money);
   initProgression();
+  restoration.refresh();   // light up whatever's already been restored in this save
   if (!window.__journalInit) { window.__journalInit = true; initJournal(); }
   ensureLbName();
   UI.setLevel();
@@ -260,6 +264,7 @@ function interact() {
   else if (id === 'dig') doDig();
   else if (id === 'wcd') openOrder();
   else if (id === 'wall') openWall();
+  else if (id === 'restore') openRestore();
   else if (id === 'mazechest') openMazeChest();
   else if (id === 'campfire') campFireAction();
   else if (id === 'tower') climbTower();
@@ -758,6 +763,30 @@ function openWall() {
   audio.page();
   UI.openWall();
 }
+
+// ---------- the restoration board ----------
+function openRestore() {
+  controls.enabled = false;
+  controls.releaseLock();
+  audio.page();
+  UI.openRestore();
+}
+UI.onRestoreDonated = () => audio.coin();
+UI.onRestoreDone = (p) => {
+  audio.fanfare();
+  const r = p.reward || {};
+  if (r.coins) { State.money += r.coins; UI.setMoney(State.money); }
+  if (r.stardust) State.stardust += r.stardust;
+  if (r.xp) addXp(r.xp);
+  restoration.refresh();
+  bus.emit('restorationDone', { id: p.id });
+  if (p.id === 'capstone') bus.emit('houseRestored', {});
+  save();
+  const bits = [r.coins ? `🪙${r.coins}` : '', r.stardust ? `${r.stardust}✨` : ''].filter(Boolean).join(' +');
+  UI.toast(p.restoresHouse
+    ? `🏡 THE HOUSE RESTORED. Every window glows warm against the fields. Welcome home. ${bits ? '+' + bits : ''}`
+    : `🪛 ${p.name} — restored! A lantern lights along the path home. ${bits ? '+' + bits : ''}`, 7000);
+};
 
 bus.on('mysteryPinned', ({ id }) => {
   audio.page();
@@ -1679,6 +1708,7 @@ function tick() {
   }
   tower.update(State.playTime);
   gate.update(State.playTime);
+  restoration.update(State.playTime);
   if (!listenerEnt.active) audio.listenerStop();
   maze.update(dt, State.playTime, player);
   camps.update(dt, State.playTime);

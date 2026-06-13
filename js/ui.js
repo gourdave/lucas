@@ -8,6 +8,7 @@ import { claimQuest, xpNeed } from './progression.js';
 import { journalSections } from './journal.js';
 import { BOARDS, fetchBoard, ensureLbName, rerollLbName } from './lb.js';
 import { CROPS } from './garden.js';
+import { PROJECTS, projectView, donateSlot, restorationPct } from './restoration.js';
 import { PETS, RARITY } from './pets.js';
 import { ReelGame, FISH, RARITY_COLOR } from './fishing.js';
 import { MYSTERIES, currentHint, looseThreads } from './mysteries.js';
@@ -191,6 +192,7 @@ export const UI = {
     $('journalclose').addEventListener('click', () => { $('journalpanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
     $('lbclose').addEventListener('click', () => { $('lbpanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
     $('wallclose').addEventListener('click', () => { $('wallpanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
+    $('restoreclose').addEventListener('click', () => { $('restorepanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
     $('arcadeclose').addEventListener('click', () => { $('arcadepanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
     $('chatsend').addEventListener('click', () => this._send());
     this.chatinput.addEventListener('keydown', (e) => {
@@ -612,6 +614,59 @@ export const UI = {
       body.appendChild(note);
     }
     $('wallpanel').classList.remove('hidden');
+  },
+
+  // ---------- the restoration board ----------
+  openRestore() {
+    $('restorepanel').classList.remove('hidden');
+    this._renderRestore();
+  },
+  _renderRestore() {
+    $('restorepct').textContent = restorationPct() + '% restored';
+    const body = $('restorebody');
+    body.innerHTML = '';
+    for (const p of PROJECTS) {
+      const v = projectView(p);
+      const head = document.createElement('div');
+      head.className = 'j-section';
+      const rw = v.reward || {};
+      const rwTxt = [rw.coins ? `🪙${rw.coins}` : '', rw.stardust ? `✨${rw.stardust}` : '', rw.xp ? `+${rw.xp}xp` : '']
+        .filter(Boolean).join('  ');
+      head.innerHTML = `${v.done ? '✅' : v.emoji} ${p.name}` +
+        (v.done ? ' <span style="color:#7ec27e">— restored</span>'
+          : v.locked ? ` <span style="color:#8d8470">🔒 ${v.lockReason}</span>`
+            : ` <span style="color:#8d8470">· ${rwTxt}</span>`);
+      body.appendChild(head);
+      if (!v.done) {
+        const blurb = document.createElement('div');
+        blurb.className = 'ri-sub';
+        blurb.style.margin = '0 0 6px 2px';
+        blurb.textContent = v.blurb;
+        body.appendChild(blurb);
+      }
+      for (const slot of v.slots) {
+        const row = document.createElement('div');
+        row.className = 'shopitem';
+        row.innerHTML = `
+          <div class="si-emoji">${slot.full ? '✅' : slot.emoji}</div>
+          <div class="si-info">
+            <div class="si-name">${slot.name}</div>
+            <div class="si-desc">${slot.donated}/${slot.need} donated · you have ${slot.have}</div>
+          </div>`;
+        const btn = document.createElement('button');
+        btn.textContent = slot.full ? 'done' : 'donate';
+        btn.disabled = !slot.canGive;
+        btn.addEventListener('click', () => {
+          const res = donateSlot(p.id, slot.idx);
+          if (!res) return;
+          if (res.done) this.onRestoreDone && this.onRestoreDone(res.project);
+          else this.onRestoreDonated && this.onRestoreDonated(res);
+          this._renderRestore();
+        });
+        row.appendChild(btn);
+        body.appendChild(row);
+      }
+    }
   },
 
   // ---------- the leaderboard ----------

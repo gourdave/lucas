@@ -59,6 +59,8 @@ export const BADGES = {
   trueending: { name: 'THE TRUE ENDING', emoji: '🌅', desc: 'Complete the escape tasks and walk through the EXIT' },
   cellar: { name: 'Deep Cellar', emoji: '🧰', desc: 'Crack the deep chest in the storm cellar' },
   dweller: { name: 'Light Keeper', emoji: '🕯', desc: 'Climb out of the cellar after the Dweller woke' },
+  restorer: { name: 'Handy', emoji: '🪛', desc: 'Finish a project on the restoration board' },
+  restored: { name: 'The House Restored', emoji: '🏡', desc: 'Restore the whole house — light every window' },
 };
 
 function mark(list, id) {
@@ -178,6 +180,8 @@ export function initJournal() {
   bus.on('trueEnding', () => awardBadge('trueending'));
   bus.on('cellarChest', () => awardBadge('cellar'));
   bus.on('dwellerEscaped', () => awardBadge('dweller'));
+  bus.on('restorationDone', () => awardBadge('restorer'));
+  bus.on('houseRestored', () => awardBadge('restored'));
   bus.on('scarecrowSpawn', () => mark(State.journal.creatures, 'strawman'));
   bus.on('scarecrowStared', () => { if (State.scarecrowsStared >= 3) awardBadge('staredown'); });
   bus.on('newDay', ({ n }) => {

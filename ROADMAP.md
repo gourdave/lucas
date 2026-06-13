@@ -107,6 +107,16 @@
   loot drops as a recoverable bag right by the doors. Badges: Deep Cellar
   (open the chest), Light Keeper (climb out after the Dweller woke).
 
+- v18 THE RESTORATION BOARD (Phase R, a Stardew community-center): a board
+  on the north wall lists PROJECTS, each asking for a set of things you
+  gather and cook (only replenishable stuff — no tapes/pets/dex items, so
+  nothing irreplaceable is ever spent). Fill The Pantry / Smokehouse /
+  Garden Shed / Attic and a lantern lights along the path home (the walk
+  back gets warmer as you restore the house) + the attic telescope rises;
+  finish all four to unlock the CAPSTONE, which floods every window with
+  warm light. Donations bank coins/stardust/XP. Badges: Handy (first
+  project), The House Restored (capstone).
+
 ## NEXT UP — the location arc continues:
 1. **THE OTHER HOUSE (~700m, ENDGAME)** — an exact copy of your house with
    the lights on, slightly wrong inside, legendary chest upstairs. (Online
@@ -149,8 +159,9 @@ Nothing here gets forgotten. Built items move to "Shipped".
 - ✅ Day ledger with 5/10/25 milestones *(v13)*
 
 ### Home & systems
-- Restoration Board (Stardew community center): donate item sets to unboard
-  rooms — attic telescope, guest room, etc.
+- ✅ Restoration Board (Stardew community center): donate item sets to
+  restore the house — path lanterns, attic telescope, the whole house
+  glowing warm *(v18)*
 - ✅ Camp kits *(v11)*
 - Crop mutations: rare golden/glittering crops worth 10×, journal entries
 - Pet levels: XP while following you, abilities strengthen, one evolution
