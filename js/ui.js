@@ -291,6 +291,68 @@ export const UI = {
     const text = `⛺ ×${kits} — set up camp`;
     if (el.textContent !== text) el.textContent = text;
   },
+  // ---------- the minimap (north-up, you in the middle) ----------
+  setMapVisible(on) {
+    const el = $('minimap');
+    if (el.classList.contains('hidden') === !on) return;
+    el.classList.toggle('hidden', !on);
+  },
+  drawMap(px, pz, yaw, markers, fear) {
+    const cv = $('minimap');
+    const c = cv.getContext('2d');
+    const S = cv.width, mid = S / 2, R = mid - 4;
+    const scale = R / 170;             // the circle shows ~170m around you
+    c.clearRect(0, 0, S, S);
+    c.save();
+    c.beginPath();
+    c.arc(mid, mid, R, 0, Math.PI * 2);
+    c.clip();
+    c.fillStyle = `rgba(10,12,16,${0.5 + fear * 0.25})`;   // deep field dims the glass
+    c.fillRect(0, 0, S, S);
+    // range rings at 50m and 100m
+    c.strokeStyle = 'rgba(216,178,79,0.14)';
+    for (const r of [50, 100, 150]) {
+      c.beginPath();
+      c.arc(mid, mid, r * scale, 0, Math.PI * 2);
+      c.stroke();
+    }
+    // markers (clamped to the rim when out of range)
+    for (const m of markers) {
+      let dx = (m.x - px) * scale, dy = (m.z - pz) * scale;
+      const d = Math.hypot(dx, dy);
+      const out = d > R - 6;
+      if (out) { dx *= (R - 6) / d; dy *= (R - 6) / d; }
+      const t = performance.now() / 1000;
+      const size = m.pulse ? 2.6 + Math.sin(t * 5) * 1.1 : (out ? 2 : 3);
+      c.fillStyle = m.color;
+      c.globalAlpha = out ? 0.65 : 1;
+      c.beginPath();
+      c.arc(mid + dx, mid + dy, size, 0, Math.PI * 2);
+      c.fill();
+      c.globalAlpha = 1;
+    }
+    // you: a little arrow pointing where you face (yaw 0 = north = up)
+    const a = Math.atan2(-Math.cos(yaw), -Math.sin(yaw));
+    c.save();
+    c.translate(mid, mid);
+    c.rotate(a + Math.PI / 2);
+    c.fillStyle = '#f0e6c8';
+    c.beginPath();
+    c.moveTo(0, -5.5);
+    c.lineTo(4, 4.5);
+    c.lineTo(0, 2.4);
+    c.lineTo(-4, 4.5);
+    c.closePath();
+    c.fill();
+    c.restore();
+    c.restore();
+    // N at the top
+    c.fillStyle = 'rgba(232,212,154,0.8)';
+    c.font = '9px Georgia';
+    c.textAlign = 'center';
+    c.fillText('N', mid, 11);
+  },
+
   // the scribbled note from the number station (null hides it)
   setDig(text) {
     const el = $('digchip');
