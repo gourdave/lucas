@@ -1,5 +1,5 @@
 // arcade.js — LEVEL 3999, "THE TRUE ENDING". Designed by Lucas: behind the
-// door at the 1000m mark, a massive neon-lit retro arcade. Safe haven — no
+// door past the barn (~320m), a massive neon-lit retro arcade. Safe haven — no
 // hostile anything, calm comes back, chiptunes hum — and an ESCAPE: finish
 // a randomized task list and the EXIT opens. Walking through rolls the True
 // Ending. Then you wake up home, rich, and the fields keep going. Forever.

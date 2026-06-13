@@ -37,6 +37,8 @@ import { Scarecrow } from './scarecrow.js';
 import { Gate, GATE_POS } from './gate.js';
 import { Arcade, SPAWN as ARCADE_SPAWN, CABINETS, TASKS, rollTasks, markTask, exitOpen } from './arcade.js';
 import { ensurePlayDay } from './progression.js';
+import { Online } from './online.js';
+import { startStats } from './stats.js';
 
 const WALK_SPEED = 4.2;
 const EYE = 1.62;
@@ -104,6 +106,7 @@ const gate = new Gate(scene);
 const arcade = new Arcade(scene);
 const gnome = new Gnome(scene);
 const windowFigure = new WindowFigure(scene);
+const online = new Online();
 buildBoard(scene);
 buildCarving(scene, BARN_POS);
 house.hotspots.push({ id: 'wall', x: 0.3, y: 0, z: -3.9, r: 1.4, label: '🧵  The string wall' });
@@ -143,6 +146,61 @@ document.getElementById('btn-new').addEventListener('click', () => {
 });
 document.getElementById('btn-continue').addEventListener('click', () => startGame(true));
 
+// online mode toggle on the title screen
+;(() => {
+  const btn = document.getElementById('online-toggle');
+  const lbl = document.getElementById('online-label');
+  function refresh() {
+    const on = State.online.enabled;
+    lbl.textContent = on
+      ? `online (${State.online.code || 'FIELDS'}) — tap to go offline`
+      : 'offline — tap to play with friends';
+    btn.classList.toggle('on', on);
+  }
+  refresh();
+  btn.addEventListener('click', () => {
+    if (State.online.enabled) {
+      State.online.enabled = false;
+      save(); refresh();
+      if (playing) { online.disconnect(); UI.setOnlineStatus(online); }
+    } else {
+      UI.openOnlineModal(State.online.code || 'FIELDS', (code) => {
+        State.online.code = code;
+        State.online.enabled = true;
+        save(); refresh();
+        if (playing) {
+          online.connect(scene, code);
+          online.onMsg = (name, text, color) => UI.addFriendMsg(name, text, color);
+          UI.setOnlineStatus(online);
+        }
+      });
+    }
+  });
+})();
+
+// T key opens friend chat (desktop); online chip tap handles mobile
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyT' || e.repeat) return;
+  const tag = document.activeElement?.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  if (online.connected && playing) {
+    controls.releaseLock?.();
+    UI.toggleFriendChat((text) => {
+      const sent = online.sendChat(text);
+      if (sent.trim()) UI.addFriendMsg('You', sent, online.myColor || '#7ec8f0');
+    });
+  }
+});
+document.getElementById('onlinechip').addEventListener('click', () => {
+  if (online.connected && playing) {
+    controls.releaseLock?.();
+    UI.toggleFriendChat((text) => {
+      const sent = online.sendChat(text);
+      if (sent.trim()) UI.addFriendMsg('You', sent, online.myColor || '#7ec8f0');
+    });
+  }
+});
+
 function startGame(fromSave) {
   if (fromSave && load()) placeAtBed();
   else placeAtSpawn();
@@ -159,6 +217,12 @@ function startGame(fromSave) {
   UI.setPetsButton(unlocked('pets'));
   playing = true;
   controls.enabled = true;
+  startStats(() => playing);   // anonymous usage heartbeats
+  if (State.online.enabled) {
+    online.connect(scene, State.online.code || 'FIELDS');
+    online.onMsg = (name, text, color) => UI.addFriendMsg(name, text, color);
+  }
+  UI.setOnlineStatus(online);
   if (!State.flags.welcomed) {
     State.flags.welcomed = true;
     UI.toast('Level 10 — “The Bumper Crop”. The house is yours. The fields are… patient.', 5200);
@@ -406,7 +470,7 @@ async function climbDown() {
   busy = false;
 }
 
-// ---------- the door at the 1000m mark: LEVEL 3999 is OPEN ----------
+// ---------- the door at the ~320m mark: LEVEL 3999 is OPEN ----------
 async function tryGate() {
   busy = true;
   controls.enabled = false;
@@ -425,7 +489,7 @@ async function tryGate() {
     addXp(100);
     bus.emit('enteredArcade', {});
     save();
-    UI.toast('🕹 LEVEL 3999 — "THE TRUE ENDING". A retro arcade, neon and humming, a thousand meters from anywhere. Nothing here hunts. Check the ESCAPE TASKS board — finish the list and the EXIT opens.', 10000);
+    UI.toast('🕹 LEVEL 3999 — "THE TRUE ENDING". A retro arcade, neon and humming, far below the fields. Nothing here hunts. Check the ESCAPE TASKS board — finish the list and the EXIT opens.', 10000);
   } else {
     UI.toast('🕹 Level 3999. The machines remember you.', 4000);
   }
@@ -1350,7 +1414,7 @@ function mapMarkers() {
     { x: BARN_POS.x, z: BARN_POS.z, color: '#e85530' },     // the barn
     { x: MAZE_POS.x, z: MAZE_POS.z, color: '#7ec27e' },     // the corn maze
     { x: TOWER_POS.x, z: TOWER_POS.z, color: '#ff5a5a' },   // the radio tower
-    { x: GATE_POS.x, z: GATE_POS.z, color: '#f0ead8' },     // THE DOOR (1000m)
+    { x: GATE_POS.x, z: GATE_POS.z, color: '#f0ead8' },     // THE DOOR (~320m)
   ];
   for (const c of State.camps) m.push({ x: c.x, z: c.z, color: '#ffa040' });
   if (State.digSite) m.push({ x: State.digSite.x, z: State.digSite.z, color: '#b8ffd0', pulse: true });
@@ -1408,6 +1472,7 @@ function watchPerformance(rawDt) {
   if (slowFrames > 240) dropGfx();
 }
 window.__dropGfx = dropGfx;
+window.__online = online;
 
 let __frameCount = 0;
 function tick() {
@@ -1673,9 +1738,14 @@ function tick() {
     if (!inArcade) {
       // climbing the tower once widens the glass forever
       UI.drawMap(player.x, player.z, controls.yaw, mapMarkers(), world.fear,
-        State.flags.towerClimbed ? 280 : 170);
+        State.flags.towerClimbed ? 280 : 170, online.peerDots());
     }
   }
+
+  // --- online: broadcast position, lerp friend avatars ---
+  online.tick(player.x, player.z, controls.yaw, dt);
+  online.update(dt);
+  UI.setOnlineStatus(online);
 
   // --- audio mix ---
   audio.update(dt, world.fear, State.sanity);

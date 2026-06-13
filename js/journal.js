@@ -30,7 +30,7 @@ export const BADGES = {
   firstkill: { name: 'First Pop', emoji: '💥', desc: 'Pop your first wormling' },
   far200: { name: 'Deep Walker', emoji: '👣', desc: 'Reach the 200m mark' },
   far500: { name: 'Edge of the Map', emoji: '🌫', desc: 'Reach the 500m mark' },
-  far1000: { name: 'The Door Knocker', emoji: '🚪', desc: 'Reach the 1000m mark — and what waits there' },
+  far1000: { name: 'Edge of Forever', emoji: '🌌', desc: 'Reach the 1000m mark — the fields never end' },
   rich: { name: 'Grain Baron', emoji: '🪙', desc: 'Hold 500 coins at once' },
   level10: { name: 'Storm of the Fields', emoji: '⭐', desc: 'Reach level 10' },
   allpets: { name: 'Best Friend of Everything', emoji: '🐾', desc: 'Hatch all 8 pets' },
@@ -55,7 +55,7 @@ export const BADGES = {
   days5: { name: 'Settler', emoji: '🗓', desc: 'Survive 5 days in the fields' },
   days10: { name: 'Resident', emoji: '🏡', desc: 'Survive 10 days' },
   days25: { name: 'Old-Timer', emoji: '🌟', desc: 'Survive 25 days' },
-  arcade3999: { name: 'Level 3999', emoji: '🕹', desc: 'Find what waits behind the 1000m door' },
+  arcade3999: { name: 'Level 3999', emoji: '🕹', desc: 'Find what waits behind the door past the barn' },
   trueending: { name: 'THE TRUE ENDING', emoji: '🌅', desc: 'Complete the escape tasks and walk through the EXIT' },
 };
 

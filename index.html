@@ -193,6 +193,83 @@
     border: 1px solid rgba(216,178,79,.35); background: rgba(8,10,14,.4);
   }
 
+  /* ---------- online friends chip ---------- */
+  #onlinechip {
+    position: fixed; left: calc(12px + env(safe-area-inset-left));
+    bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 9;
+    font-size: 12px; color: #7ec8f0; background: rgba(8,18,28,.72);
+    border: 1px solid rgba(126,200,240,.35); border-radius: 14px; padding: 5px 11px;
+    pointer-events: none; transition: background .2s;
+  }
+  #online-toggle {
+    background: transparent !important; color: #7ec8f0 !important;
+    border: 1px solid rgba(126,200,240,.55) !important;
+    font-size: 13px !important; letter-spacing: .06em !important;
+    padding: 9px 22px !important; margin-top: 0;
+  }
+  #online-toggle.on { background: rgba(30,60,90,.55) !important; }
+
+  /* ---------- friend chat panel ---------- */
+  #fchat {
+    position: fixed; left: calc(8px + env(safe-area-inset-left));
+    bottom: calc(46px + env(safe-area-inset-bottom)); z-index: 20;
+    width: min(290px, calc(100vw - 24px));
+    background: rgba(8,12,18,0.92); border: 1px solid rgba(126,200,240,.35);
+    border-radius: 12px; overflow: hidden;
+  }
+  #fchat-head {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 7px 12px; font-size: 11px; letter-spacing: .2em; color: #7ec8f0;
+    background: rgba(12,24,40,.6);
+  }
+  #fchat-head button { background: none; border: none; color: #7ec8f0; font-size: 20px; cursor: pointer; line-height: 1; }
+  #fchat-log {
+    height: 150px; overflow-y: auto; padding: 8px 10px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .fc-msg { font-size: 12.5px; line-height: 1.45; }
+  .fc-name { font-weight: 700; margin-right: 4px; }
+  .fc-text { color: #e8dcc2; }
+  #fchat-row {
+    display: flex; gap: 6px; padding: 7px 10px;
+    background: rgba(0,0,0,.3); border-top: 1px solid rgba(126,200,240,.12);
+  }
+  #fchat-input {
+    flex: 1; font-size: 13px; padding: 7px 10px; border-radius: 16px; outline: none;
+    border: 1px solid rgba(126,200,240,.3); background: rgba(255,255,255,.06); color: #eee;
+  }
+  #fchat-send {
+    width: 34px; height: 34px; border-radius: 50%; border: none; cursor: pointer;
+    background: rgba(126,200,240,.25); color: #7ec8f0; font-size: 14px;
+  }
+
+  /* ---------- online room-code modal ---------- */
+  #online-modal {
+    position: fixed; inset: 0; z-index: 45; display: flex; align-items: center; justify-content: center;
+    background: rgba(4,5,7,.82); padding: 16px;
+  }
+  #online-modal-panel {
+    width: min(380px, 100%); background: rgba(10,14,22,.97); border-radius: 14px; padding: 22px;
+    border: 1px solid rgba(126,200,240,.4);
+  }
+  #online-modal-head { color: #7ec8f0; font-size: 14px; letter-spacing: .15em; margin-bottom: 12px; }
+  #online-modal-panel p { font-size: 12.5px; color: #a59d88; line-height: 1.6; margin-bottom: 14px; }
+  #online-code {
+    width: 100%; font-size: 18px; padding: 10px 14px; border-radius: 8px; outline: none;
+    border: 1px solid rgba(126,200,240,.4); background: rgba(126,200,240,.07); color: #7ec8f0;
+    letter-spacing: .2em; text-transform: uppercase; margin-bottom: 14px; box-sizing: border-box;
+  }
+  #online-modal-row { display: flex; gap: 8px; }
+  #online-join {
+    font-size: 13px; padding: 10px 20px; border-radius: 8px; cursor: pointer;
+    background: rgba(126,200,240,.2); color: #7ec8f0; font-weight: 700;
+    border: 1px solid rgba(126,200,240,.5);
+  }
+  #online-cancel {
+    font-size: 12px; padding: 10px 16px; border-radius: 8px; cursor: pointer;
+    background: transparent; color: #8d8470; border: 1px solid rgba(255,255,255,.15);
+  }
+
   /* ---------- Level 3999 ---------- */
   #cabbox { width: min(360px, 94vw); touch-action: none; }
   #cabcanvas {
@@ -408,6 +485,15 @@
 </div>
 
 <canvas id="minimap" width="124" height="124" class="hidden"></canvas>
+<div id="onlinechip" class="hidden"></div>
+<div id="fchat" class="hidden">
+  <div id="fchat-head"><span>💬 FRIENDS</span><button id="fchat-close">×</button></div>
+  <div id="fchat-log"></div>
+  <div id="fchat-row">
+    <input id="fchat-input" maxlength="140" placeholder="say something…" autocomplete="off" spellcheck="false">
+    <button id="fchat-send">➤</button>
+  </div>
+</div>
 <button id="prompt" class="hidden"></button>
 <div id="bossbar" class="hidden"><span id="bossname">🎃 THE HARVESTER</span><div class="bar" style="width:220px"><div id="bossfill"></div></div></div>
 <div id="crosshair" class="hidden"></div>
@@ -429,7 +515,20 @@
     The house is safe. The fields are not.<br>
     Walk far enough and the day will stop following you.
   </div>
+  <button id="online-toggle" class="ghost">🌐 <span id="online-label">offline</span></button>
   <button id="aisetup-open">⚙ ai setup</button>
+</div>
+
+<div id="online-modal" class="hidden">
+  <div id="online-modal-panel">
+    <div id="online-modal-head">🌐 PLAY WITH FRIENDS</div>
+    <p>Enter a <b>room code</b> and share it with your friends. Everyone who types the same code lands in your room. Max 8 players.</p>
+    <input id="online-code" maxlength="8" placeholder="e.g. FIELDS" autocomplete="off" spellcheck="false">
+    <div id="online-modal-row">
+      <button id="online-join">JOIN ROOM</button>
+      <button id="online-cancel">cancel</button>
+    </div>
+  </div>
 </div>
 
 <div id="aisetup" class="hidden">
