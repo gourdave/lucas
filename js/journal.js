@@ -55,6 +55,8 @@ export const BADGES = {
   days5: { name: 'Settler', emoji: '🗓', desc: 'Survive 5 days in the fields' },
   days10: { name: 'Resident', emoji: '🏡', desc: 'Survive 10 days' },
   days25: { name: 'Old-Timer', emoji: '🌟', desc: 'Survive 25 days' },
+  arcade3999: { name: 'Level 3999', emoji: '🕹', desc: 'Find what waits behind the 1000m door' },
+  trueending: { name: 'THE TRUE ENDING', emoji: '🌅', desc: 'Complete the escape tasks and walk through the EXIT' },
 };
 
 function mark(list, id) {
@@ -170,6 +172,8 @@ export function initJournal() {
   bus.on('borrowerDropped', () => awardBadge('repo'));
   bus.on('campPlaced', () => awardBadge('homestead'));
   bus.on('towerClimbed', () => awardBadge('tower'));
+  bus.on('enteredArcade', () => awardBadge('arcade3999'));
+  bus.on('trueEnding', () => awardBadge('trueending'));
   bus.on('scarecrowSpawn', () => mark(State.journal.creatures, 'strawman'));
   bus.on('scarecrowStared', () => { if (State.scarecrowsStared >= 3) awardBadge('staredown'); });
   bus.on('newDay', ({ n }) => {

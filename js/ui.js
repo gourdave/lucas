@@ -191,6 +191,7 @@ export const UI = {
     $('journalclose').addEventListener('click', () => { $('journalpanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
     $('lbclose').addEventListener('click', () => { $('lbpanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
     $('wallclose').addEventListener('click', () => { $('wallpanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
+    $('arcadeclose').addEventListener('click', () => { $('arcadepanel').classList.add('hidden'); this.onPanelClosed && this.onPanelClosed(); });
     $('chatsend').addEventListener('click', () => this._send());
     this.chatinput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') this._send();
@@ -639,6 +640,105 @@ export const UI = {
       };
       raf = requestAnimationFrame(loop);
     }, opts.fastBite ? 400 + Math.random() * 600 : 1100 + Math.random() * 1700);
+  },
+
+  // ---------- Level 3999: cabinet games + tasks + the credits ----------
+  // a generic 2D cabinet runner: game has update(dt, input) -> 'win'|'lose',
+  // draw(ctx, W, H), hud(). input = { tap (once per frame), x: 0..1 | null }.
+  openCabinet(game, onDone) {
+    const wrap = $('cabpanel');
+    const cv = $('cabcanvas');
+    const ctx2 = cv.getContext('2d');
+    $('cabtitle').textContent = game.title;
+    const hudEl = $('cabhud');
+    wrap.classList.remove('hidden');
+    let tap = false, px = null, downId = null, raf = 0, lastT = performance.now(), finished = false;
+    const toX = (e) => {
+      const r = cv.getBoundingClientRect();
+      return Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+    };
+    const down = (e) => { e.preventDefault(); tap = true; downId = e.pointerId; px = toX(e); };
+    const move = (e) => { if (e.pointerId === downId) px = toX(e); };
+    const up = (e) => { if (e.pointerId === downId) { downId = null; px = null; } };
+    wrap.addEventListener('pointerdown', down);
+    wrap.addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    addEventListener('pointercancel', up);
+    const cleanup = () => {
+      finished = true;
+      cancelAnimationFrame(raf);
+      wrap.removeEventListener('pointerdown', down);
+      wrap.removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      removeEventListener('pointercancel', up);
+      $('cabclose').onclick = null;
+    };
+    $('cabclose').onclick = () => { cleanup(); wrap.classList.add('hidden'); onDone('quit'); };
+    const loop = (now) => {
+      if (finished) return;
+      const dt = Math.min(0.05, (now - lastT) / 1000);
+      lastT = now;
+      const result = game.update(dt, { tap, x: px });
+      tap = false;
+      game.draw(ctx2, cv.width, cv.height);
+      hudEl.textContent = game.hud();
+      if (!result) { raf = requestAnimationFrame(loop); return; }
+      cleanup();
+      hudEl.textContent = result === 'win' ? '🏆 WINNER!' : '💥 game over — try again!';
+      setTimeout(() => { wrap.classList.add('hidden'); onDone(result); }, 1400);
+    };
+    raf = requestAnimationFrame(loop);
+  },
+
+  openTasks(tasksDex) {
+    const body = $('arcadebody');
+    body.innerHTML = '';
+    for (const id of State.arcade.tasks) {
+      const done = State.arcade.done.includes(id);
+      const row = document.createElement('div');
+      row.className = 'rowitem';
+      row.innerHTML = `<div style="font-size:22px">${done ? '✅' : tasksDex[id].emoji}</div>
+        <div class="ri-main"><div class="ri-title" style="${done ? 'opacity:.55;text-decoration:line-through' : ''}">${tasksDex[id].desc}</div></div>`;
+      body.appendChild(row);
+    }
+    const note = document.createElement('div');
+    note.className = 'ri-sub';
+    note.style.textAlign = 'center';
+    note.textContent = State.arcade.done.length >= State.arcade.tasks.length
+      ? '✦ ALL DONE — THE EXIT IS OPEN ✦'
+      : `${State.arcade.tasks.length - State.arcade.done.length} to go — then the EXIT opens.`;
+    body.appendChild(note);
+    $('arcadepanel').classList.remove('hidden');
+  },
+
+  // the True Ending: lines fade through, then it lets you go
+  runCredits() {
+    return new Promise((resolve) => {
+      const el = $('credits');
+      const lines = [
+        'THE BUMPER CROP',
+        'a Backrooms Level 10 story',
+        '',
+        'LEVEL 3999 — CLEARED',
+        '',
+        'created by',
+        'KAMSAMNOR',
+        '',
+        'the fields are patient.',
+        'see you tomorrow.',
+      ];
+      el.innerHTML = lines.map((l, i) =>
+        `<div class="cr-line" style="animation-delay:${i * 0.9}s">${l || '&nbsp;'}</div>`).join('');
+      el.classList.remove('hidden');
+      const finish = () => {
+        clearTimeout(timer);
+        el.removeEventListener('click', finish);
+        el.classList.add('hidden');
+        resolve();
+      };
+      const timer = setTimeout(finish, lines.length * 900 + 4500);
+      el.addEventListener('click', finish);
+    });
   },
 
   // ---------- generic picker (seeds, eggs) ----------
