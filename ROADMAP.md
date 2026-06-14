@@ -1,6 +1,46 @@
 # Roadmap & parked thoughts
 
+## ⏳ TODO / pick up here (as of 2026-06-14 — end of a long playtest session)
+
+### Needs David (Cloudflare — only you can deploy)
+- **Deploy the worker → `v17-chat`** to switch on server-side chat persistence.
+  Paste `proxy/worker.js` into the `lucas` worker editor → Deploy → confirm
+  `"version":"v17-chat"` at https://lucas.davidpgourley92.workers.dev/ .
+  Until then, chat works live but won't replay after a refresh.
+
+### Designed but not built yet
+- **Weapons planning session (Lucas's ask):** a MELEE weapon + cooler guns.
+  Do a design pass over `js/shop.js` (GUNS) + the shooting code in `js/main.js`
+  before building. NOT started.
+
+### Verify on the live site after the next deploy (couldn't test these headless)
+- Mirror reflection shows in the house (works in code; earlier "missing" was
+  deploy-timing / stale cache).
+- Names render on the horizon + the chip shows "N online" live.
+- Spacebar jump arc (logic verified; the headless loop is rAF-throttled).
+- Chat history replays for a friend who refreshes (after the worker deploy).
+
+### Parked ideas (someday)
+- Journal completion finale: "Curator of Level 10" title + golden porch light at 100%.
+- Dr. Umbra multi-step quests.
+
+### Notes
+- Scores already persist per player: `lb.js` keys the leaderboard by the saved
+  `State.lbName` and the worker max-merges. If scores "reset", it's localStorage
+  being blocked — **private/incognito mode silently fails saves** (a warning now
+  toasts in that case). Use a normal window and **Continue** (New Game wipes it).
+- The site auto-deploys from `main` (~1–2 min); the SW is network-first so a
+  refresh after the build finishes gets the latest.
+
 ## Shipped
+- 2026-06-14 playtest pass: Storm Cellar (v17), Restoration Board (v18), The
+  Other House (v19), white-mannequin online avatars, Weather days, the Mirror,
+  Crop mutations (golden ✨ / prismatic 🌈), Pet levels (XP/evolve), the
+  Backpack, full keyboard controls (WASD + arrow-look, E shoot, Q/Shift run,
+  Space jump, F drink), run, names-on-horizon + live online count, dream
+  "Wake up" button, online auto-reconnect, persistence hardening (pagehide
+  save + private-mode warning), chat-history client + worker (v17-chat, pending
+  deploy). Fixes: roof peak, restaurant walls/door, couch↔bathroom, README play URL.
 - v1 MVP · v2 realism+kitchen · v3 combat+shop · v4 Claude therapist (global)
 - v5 progression: expeditions/Bravery, levels, quests, garden, pets
 - v6 everything-else: journal, photo mode, decor, tapes/radio, The Harvester,
