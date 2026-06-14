@@ -4,6 +4,12 @@
 
 import * as THREE from 'three';
 import { State, bus, save, gameNow } from './state.js';
+import { glowSprite } from './gfx.js';
+
+export const PET_MAX_LEVEL = 10;
+// xp to climb from `level` to the next. Pets evolve at level 5 (✦) and 10 (✦✦).
+export function xpForLevel(level) { return 60 * level; }
+export function petStars(level) { return level >= PET_MAX_LEVEL ? '✦✦' : level >= 5 ? '✦' : ''; }
 
 export const RARITY = {
   common: { name: 'Common', color: '#9fb89a', weight: 0 },
@@ -147,6 +153,25 @@ export class Pets {
     return State.pets.owned.find((p) => p.uid === State.pets.active) || null;
   }
 
+  // the active (following) pet earns XP from your adventures and levels up,
+  // strengthening its ability and evolving its look. Returns the level-up info
+  // (or null) so the caller can celebrate it.
+  gainXp(n) {
+    const pet = this.ownedActive();
+    if (!pet || n <= 0) return null;
+    pet.level ||= 1;
+    pet.xp = (pet.xp || 0) + n;
+    let leveled = false;
+    while (pet.level < PET_MAX_LEVEL && pet.xp >= xpForLevel(pet.level)) {
+      pet.xp -= xpForLevel(pet.level);
+      pet.level++;
+      leveled = true;
+    }
+    if (pet.level >= PET_MAX_LEVEL) pet.xp = 0;
+    save();
+    return leveled ? { pet, level: pet.level, evolved: pet.level === 5 || pet.level === PET_MAX_LEVEL } : null;
+  }
+
   addPet(type) {
     const pet = { uid: 'p' + (petUid++) + '_' + Date.now().toString(36), type, name: PETS[type].name, hatchedAt: gameNow() };
     State.pets.owned.push(pet);
@@ -186,6 +211,19 @@ export class Pets {
     const active = this.ownedActive();
     if (this.followMesh && active) {
       const m = this.followMesh;
+      const lvl = active.level || 1;
+      // evolution: the pet grows as it levels, and gains a glow at level 5+
+      m.scale.setScalar(1 + (lvl - 1) * 0.035);
+      if (lvl >= 5 && !m.userData.evoGlow) {
+        const glow = glowSprite(0xfff0b0, 1.4, 0.5);
+        glow.position.y = 0.5;
+        m.add(glow);
+        m.userData.evoGlow = glow;
+      }
+      if (m.userData.evoGlow) {
+        m.userData.evoGlow.visible = lvl >= 5;
+        m.userData.evoGlow.material.color.setHex(lvl >= PET_MAX_LEVEL ? 0xb0e0ff : 0xfff0b0);
+      }
       const targetX = ctx.playerPos.x + Math.sin(t * 0.4) * 0.3 - 1.0;
       const targetZ = ctx.playerPos.z + Math.cos(t * 0.4) * 0.3 + 0.8;
       m.position.x += (targetX - m.position.x) * Math.min(1, dt * 3.5);
@@ -197,16 +235,17 @@ export class Pets {
 
       // --- abilities ---
       State.flags.watcherBoost = active.type === 'watcher';
-      this.coinBonus = active.type === 'crow' ? 1.25 : 1;
-      // beetle: light that matters more the darker it gets
+      // every pet helps your coins a little more as it levels; the crow most of all
+      this.coinBonus = (active.type === 'crow' ? 1.25 : 1) + (lvl - 1) * 0.03;
+      // beetle: light that matters more the darker it gets (brighter with level)
       this.light.position.copy(m.position).y += 0.5;
-      this.light.intensity = active.type === 'beetle' ? 4 + ctx.fear * 14 : 0;
+      this.light.intensity = active.type === 'beetle' ? (4 + ctx.fear * 14) * (1 + (lvl - 1) * 0.08) : 0;
       // cat: warning hiss
       this._abilityTimers.warn -= dt;
       if (active.type === 'cat' && this._abilityTimers.warn <= 0) {
         const threat = Math.min(ctx.monsters.nearestDist, ctx.creatures.nearestDist);
         if (threat < 30) {
-          this._abilityTimers.warn = 12;
+          this._abilityTimers.warn = Math.max(6, 12 - lvl * 0.5);
           ctx.toast('🐈‍⬛ Your cat hisses at the dark. Something is close.');
           ctx.audio.whisperNow && ctx.audio.whisperNow();
         }
@@ -216,16 +255,17 @@ export class Pets {
       if (active.type === 'sprite' && this._abilityTimers.sprite <= 0) {
         const dir = ctx.world.nearestTreasureDir(ctx.playerPos, 40);
         if (dir) {
-          this._abilityTimers.sprite = 18;
+          this._abilityTimers.sprite = Math.max(9, 18 - lvl * 0.7);
           ctx.toast(`🌾 Your sprite chirps — something sparkly to the ${dir}!`);
         }
       }
       // moth: comfort
       this._abilityTimers.moth -= dt;
       if (active.type === 'moth' && this._abilityTimers.moth <= 0 && State.sanity < 30) {
-        this._abilityTimers.moth = 45;
-        ctx.addCalm(12);
-        ctx.toast('🦋 Your moth settles on your shoulder. (+12 calm)');
+        this._abilityTimers.moth = Math.max(25, 45 - lvl * 2);
+        const calm = Math.round(10 + lvl * 1.5);
+        ctx.addCalm(calm);
+        ctx.toast(`🦋 Your moth settles on your shoulder. (+${calm} calm)`);
       }
       // baby wormling: bites the nearest monster
       this._abilityTimers.worm -= dt;
@@ -233,8 +273,8 @@ export class Pets {
         const target = ctx.monsters.list().find((mm) =>
           mm.mesh.position.distanceTo(ctx.playerPos) < 8);
         if (target) {
-          this._abilityTimers.worm = 3;
-          ctx.monsters.hit(target, 1);
+          this._abilityTimers.worm = Math.max(1.5, 3 - lvl * 0.1);
+          ctx.monsters.hit(target, 1 + Math.floor(lvl / 4));
         }
       }
       // strawlem: recharging shield
@@ -267,7 +307,7 @@ export class Pets {
     const active = this.ownedActive();
     if (active && active.type === 'strawlem' && State.flags.petShield) {
       State.flags.petShield = false;
-      this._abilityTimers.shield = 60;
+      this._abilityTimers.shield = Math.max(30, 60 - (active.level || 1) * 3);   // recharges faster with level
       return true;
     }
     return false;

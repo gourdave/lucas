@@ -768,6 +768,24 @@ function ensureWeather(announce) {
   applyWeather(announce);
 }
 
+// ---------- pet leveling ----------
+// the active (following) pet earns XP from your adventures; it strengthens and evolves
+function petXp(n) {
+  const up = pets.gainXp(n);
+  if (!up) return;
+  if (up.evolved) {
+    audio.fanfare();
+    UI.toast(`🌟 ${up.pet.name} EVOLVED — level ${up.level}! Its ability is stronger now, and it looks the part.`, 7000);
+  } else {
+    audio.coin();
+    UI.toast(`⭐ ${up.pet.name} reached level ${up.level}.`, 4000);
+  }
+}
+bus.on('banked', () => petXp(8));
+bus.on('monsterKilled', () => petXp(6));
+bus.on('newDay', () => petXp(25));
+bus.on('harvest', () => petXp(3));
+
 // ---------- crop mutations ----------
 bus.on('cropMutation', ({ crop, mutation, count }) => {
   const c = CROPS[crop];
@@ -1614,6 +1632,7 @@ window.__state = State;
 window.__world = world;
 window.__mirror = mirror;
 window.__garden = garden;
+window.__pets = pets;
 window.__teleport = (x, z, y = 0) => player.set(x, y, z);
 window.__look = (yaw, pitch = 0) => { controls.yaw = yaw; controls.pitch = pitch; };
 window.__creatures = creatures;

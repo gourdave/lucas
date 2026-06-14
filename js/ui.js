@@ -9,7 +9,7 @@ import { journalSections } from './journal.js';
 import { BOARDS, fetchBoard, ensureLbName, rerollLbName } from './lb.js';
 import { CROPS } from './garden.js';
 import { PROJECTS, projectView, donateSlot, restorationPct } from './restoration.js';
-import { PETS, RARITY } from './pets.js';
+import { PETS, RARITY, petStars, xpForLevel, PET_MAX_LEVEL } from './pets.js';
 import { ReelGame, FISH, RARITY_COLOR } from './fishing.js';
 import { MYSTERIES, currentHint, looseThreads } from './mysteries.js';
 
@@ -531,11 +531,18 @@ export const UI = {
       const row = document.createElement('div');
       row.className = 'rowitem';
       const active = State.pets.active === pet.uid;
+      const lvl = pet.level || 1;
+      const stars = petStars(lvl);
+      const maxed = lvl >= PET_MAX_LEVEL;
+      const pct = maxed ? 100 : Math.round(((pet.xp || 0) / xpForLevel(lvl)) * 100);
       row.innerHTML = `
         <div style="font-size:26px">${info.emoji}</div>
         <div class="ri-main">
           <input class="pet-name-input" value="${pet.name.replace(/"/g, '')}" maxlength="18">
-          <div class="ri-sub" style="color:${rar.color}">${rar.name} · ${info.ability}</div>
+          <div class="ri-sub" style="color:${rar.color}">${rar.name} ${stars} · Lv ${lvl}${maxed ? ' MAX' : ''} · ${info.ability}</div>
+          <div style="height:5px;background:#2b2b2b;border-radius:3px;margin-top:3px;overflow:hidden">
+            <div style="height:100%;width:${pct}%;background:${maxed ? '#b0e0ff' : '#e8c84a'}"></div>
+          </div>
         </div>`;
       row.querySelector('input').addEventListener('change', (e) => {
         pet.name = e.target.value.slice(0, 18) || info.name;
