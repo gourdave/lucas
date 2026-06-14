@@ -185,6 +185,8 @@ export const UI = {
       r && r();
     });
     $('wakebtn').addEventListener('click', () => this.onWake && this.onWake());
+    $('bagbtn').addEventListener('click', () => this.openBag());
+    $('bagclose').addEventListener('click', () => this.closeBag());
     $('questsbtn').addEventListener('click', () => this.onOpenQuests && this.onOpenQuests());
     $('petsbtn').addEventListener('click', () => this.onOpenPets && this.onOpenPets());
     $('journalbtn').addEventListener('click', () => this.onOpenJournal && this.onOpenJournal());
@@ -1012,6 +1014,67 @@ export const UI = {
   },
   // the "Wake up" button shown during dreams (clickable exit once you're allowed)
   setWake(show) { $('wakebtn').classList.toggle('hidden', !show); },
+
+  // ---------- backpack / inventory ----------
+  openBag() { $('bagpanel').classList.remove('hidden'); this._renderBag(); },
+  closeBag() { $('bagpanel').classList.add('hidden'); },
+  bagOpen() { return !$('bagpanel').classList.contains('hidden'); },
+  _renderBag() {
+    const wrap = $('baglist');
+    wrap.innerHTML = '';
+    const S = State;
+    const head = (t) => {
+      const h = document.createElement('div');
+      h.className = 'ri-sub';
+      h.style.cssText = 'margin:8px 2px 0;letter-spacing:.12em;color:#7ec8f0';
+      h.textContent = t;
+      wrap.appendChild(h);
+    };
+    const row = (emoji, name, count, tint) => {
+      const r = document.createElement('div');
+      r.className = 'rowitem';
+      r.innerHTML = `<div style="font-size:24px">${emoji}</div>
+        <div class="ri-main"><div class="ri-title" style="${tint ? `color:${tint}` : ''}">${name}</div></div>
+        <div style="font-size:15px;color:#d8c89a">×${count}</div>`;
+      wrap.appendChild(r);
+    };
+    const label = (id) => CROPS[id] ? { e: CROPS[id].emoji, n: CROPS[id].name }
+      : MEALS[id] ? { e: MEALS[id].emoji, n: MEALS[id].name }
+      : { e: '🍽', n: id };
+
+    head('POCKET');
+    row('🪙', 'Grain coins', S.money);
+    row('✨', 'Stardust', S.stardust);
+    row('💧', 'Almond water', S.inventory.almondWater || 0);
+
+    const food = Object.entries(S.inventory.food || {}).filter(([, n]) => n > 0);
+    if (food.length) { head('FOOD'); for (const [id, n] of food) { const l = label(id); row(l.e, l.n, n); } }
+
+    const gold = Object.entries(S.inventory.golden || {}).filter(([id, n]) => CROPS[id] && n > 0);
+    const prism = Object.entries(S.inventory.prismatic || {}).filter(([id, n]) => CROPS[id] && n > 0);
+    if (gold.length || prism.length) {
+      head('RARE HARVEST');
+      for (const [id, n] of gold) row('✨', 'Golden ' + CROPS[id].name, n, '#e8c84a');
+      for (const [id, n] of prism) row('🌈', 'Prismatic ' + CROPS[id].name, n, '#ff7adf');
+    }
+
+    const seeds = Object.entries(S.seeds || {}).filter(([id, n]) => CROPS[id] && n > 0);
+    if (seeds.length) { head('SEEDS'); for (const [id, n] of seeds) row('🌱', CROPS[id].name + ' seeds', n); }
+
+    const gear = [];
+    if (S.pets.eggs && S.pets.eggs.length) gear.push(['🥚', 'Mystery egg', S.pets.eggs.length]);
+    if (S.campKits) gear.push(['⛺', 'Camp kit', S.campKits]);
+    if (S.bait && S.bait.n) gear.push([S.bait.kind === 'glow' ? '🌟' : '🪱', (S.bait.kind || 'worm') + ' bait', S.bait.n]);
+    if (gear.length) { head('GEAR'); for (const [e, n, c] of gear) row(e, n, c); }
+
+    if (!food.length && !gold.length && !prism.length && !seeds.length && !gear.length && !(S.inventory.almondWater)) {
+      const note = document.createElement('div');
+      note.className = 'ri-sub';
+      note.style.cssText = 'text-align:center;margin-top:14px';
+      note.textContent = 'Your pack is light. Find food, seeds, and treasures out in the fields.';
+      wrap.appendChild(note);
+    }
+  },
 
   // the dream minigame's one-line scoreboard (null hides it)
   setDreamHud(text) {

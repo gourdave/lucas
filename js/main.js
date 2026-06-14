@@ -2093,6 +2093,13 @@ document.addEventListener('visibilitychange', () => {
   else if (!document.hidden) audio.resume();
 });
 addEventListener('pagehide', () => { if (playing) save(); });   // catch refresh/close reliably
+// B opens/closes the backpack
+addEventListener('keydown', (e) => {
+  if (e.code !== 'KeyB' || !playing || busy || inDream) return;
+  const tag = document.activeElement && document.activeElement.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  UI.bagOpen() ? UI.closeBag() : UI.openBag();
+});
 // warn if the browser is blocking storage (private mode) — otherwise progress
 // silently vanishes on refresh
 try {

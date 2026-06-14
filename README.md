@@ -69,6 +69,7 @@ phone, then **⋮ → Add to Home Screen** to install it like a real app.
 | Run | push the joystick to its edge | Q or Shift |
 | Jump | — | Space |
 | Drink almond water | the bottle button | F (or the bottle button) |
+| Backpack | the 🎒 button | B (or the 🎒 button) |
 
 ## Tech (for grown-ups)
 
