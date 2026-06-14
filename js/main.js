@@ -38,6 +38,7 @@ import { Gate, GATE_POS } from './gate.js';
 import { Cellar, CELLAR_POS, CELLAR_SPAWN, cellarChestAvailable } from './cellar.js';
 import { Restoration } from './restoration.js';
 import { OtherHouse, OTHER_POS, otherChestAvailable } from './othershouse.js';
+import { Mirror } from './mirror.js';
 import { Arcade, SPAWN as ARCADE_SPAWN, CABINETS, TASKS, rollTasks, markTask, exitOpen } from './arcade.js';
 import { ensurePlayDay } from './progression.js';
 import { Online } from './online.js';
@@ -108,6 +109,7 @@ const scarecrowEnt = new Scarecrow(scene);
 const gate = new Gate(scene);
 const cellar = new Cellar(scene);
 const otherHouse = new OtherHouse(scene);
+const mirror = new Mirror(scene, { x: 2.0, z: 4.0, facing: Math.PI });   // full-length mirror, south wall (east of the door)
 const restoration = new Restoration(scene);
 const arcade = new Arcade(scene);
 const gnome = new Gnome(scene);
@@ -1597,6 +1599,7 @@ const _warmWindow = new THREE.Color(0xffc878);
 // tiny hooks for debugging from the console (harmless in production)
 window.__state = State;
 window.__world = world;
+window.__mirror = mirror;
 window.__teleport = (x, z, y = 0) => player.set(x, y, z);
 window.__look = (yaw, pitch = 0) => { controls.yaw = yaw; controls.pitch = pitch; };
 window.__creatures = creatures;
@@ -1742,6 +1745,17 @@ function tick() {
   world.lowFog = inArcade;
   const sheltered = inside || inArcade || inCellar || inOther;        // a roof overhead — no rain indoors
   world.indoors = sheltered;
+  // the mirror — your white-figure reflection tracks you when you stand before it
+  if (mirror.near(player)) {
+    mirror.update(player, controls.yaw);
+    if (!State.flags.sawMirror) {
+      State.flags.sawMirror = true;
+      save();
+      UI.toast('🪞 A mirror. So that\'s what you look like out here — a smooth white figure, the same one your friends see.', 6500);
+    }
+  } else {
+    mirror.clone.visible = false;
+  }
   // weather days: in the rain, out in the open, you slowly catch almond water
   if (world.weather === 'rain' && !sheltered && controls.enabled) {
     rainCatchT += dt;
