@@ -231,10 +231,11 @@ export function buildHouse(scene) {
     fabric.box(0.45, 0.5, 0.08, cx, 0.7, cz + (cz > 1.6 ? 0.19 : -0.19));
   }
   // living room (west): sofa + bookshelf  (therapist chair+lamp live in therapist.js)
-  fabric.box(2.0, 0.5, 0.9, -3.9, 0.25, 1.2, { collide: true });                // sofa seat
-  fabric.box(2.0, 0.55, 0.22, -3.9, 0.78, 1.55);                                // sofa back
-  fabric.box(0.22, 0.62, 0.9, -4.95, 0.56, 1.2);                                // sofa arms
-  fabric.box(0.22, 0.62, 0.9, -2.85, 0.56, 1.2);
+  // shifted east of the bathroom doorway (gap at x -4.8..-3.9) so it doesn't block it
+  fabric.box(2.0, 0.5, 0.9, -2.4, 0.25, 1.2, { collide: true });                // sofa seat
+  fabric.box(2.0, 0.55, 0.22, -2.4, 0.78, 1.55);                                // sofa back
+  fabric.box(0.22, 0.62, 0.9, -3.45, 0.56, 1.2);                                // sofa arms
+  fabric.box(0.22, 0.62, 0.9, -1.35, 0.56, 1.2);
   wood.box(0.45, 2.2, 1.6, -5.7, 1.1, -0.5, { collide: true });                 // bookshelf
   for (let s = 0; s < 4; s++) wood.box(0.4, 0.04, 1.5, -5.66, 0.4 + s * 0.5, -0.5);
   for (let b = 0; b < 14; b++) {

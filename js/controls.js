@@ -1,5 +1,6 @@
 // controls.js — one input module, two backends:
-//   desktop: pointer-lock mouse look + WASD + E to interact
+//   desktop: click-and-drag mouse look + WASD + E to interact (cursor stays
+//            free so menu buttons are always clickable)
 //   mobile:  floating left-thumb joystick + right-half drag look + tap to interact
 // Both feed the same { move, yaw, pitch } that the game reads each frame.
 
@@ -45,20 +46,27 @@ export class Controls {
     });
     addEventListener('keyup', (e) => this._keys.delete(e.code));
 
-    // --- desktop pointer lock ---
-    cv.addEventListener('click', () => {
-      if (!this.enabled || this.isTouch) return;
-      if (document.pointerLockElement !== cv) {
-        if (cv.requestPointerLock) cv.requestPointerLock();
-      } else if (this.onPrimary) {
-        this.onPrimary(); // while locked: interact if there's a prompt, else fire
-      }
+    // --- desktop mouse: click-and-drag to look, quick click to interact/fire ---
+    // No pointer lock: the cursor stays free so the HUD/menu buttons are always
+    // clickable (no need to press Esc first).
+    let dragging = false, dragMoved = 0, dragStart = 0;
+    cv.addEventListener('mousedown', (e) => {
+      if (!this.enabled || this.isTouch || e.button !== 0) return;
+      dragging = true; dragMoved = 0; dragStart = performance.now();
     });
     addEventListener('mousemove', (e) => {
-      if (document.pointerLockElement === cv && this.enabled) {
-        this.yaw -= e.movementX * 0.0022;
-        this.pitch -= e.movementY * 0.0022;
-        this._clampPitch();
+      if (!dragging || !this.enabled || this.isTouch) return;
+      dragMoved += Math.abs(e.movementX) + Math.abs(e.movementY);
+      this.yaw -= e.movementX * 0.0022;
+      this.pitch -= e.movementY * 0.0022;
+      this._clampPitch();
+    });
+    addEventListener('mouseup', (e) => {
+      if (!dragging || e.button !== 0) return;
+      dragging = false;
+      // a click that barely moved = interact (if a prompt is up) or fire
+      if (dragMoved < TAP_PX && performance.now() - dragStart < TAP_MS && this.enabled && this.onPrimary) {
+        this.onPrimary();
       }
     });
 

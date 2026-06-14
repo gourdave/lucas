@@ -1630,6 +1630,8 @@ const _warmWindow = new THREE.Color(0xffc878);
 // tiny hooks for debugging from the console (harmless in production)
 window.__state = State;
 window.__world = world;
+window.__controls = controls;
+window.__house = house;
 window.__mirror = mirror;
 window.__garden = garden;
 window.__pets = pets;
