@@ -33,6 +33,7 @@ export const State = {
   listenersSurvived: 0, // times you froze until The Listener gave up
   scarecrowsStared: 0,  // times you stared The Scarecrow back into the soil
   daysPlayed: 0,        // distinct days you've survived in the fields
+  weather: { day: '', kind: 'clear' },   // today's weather: clear | fog | rain
   mysteries: {},        // string-wall threads: { gnome: { found, solved, shots } }
   rodTier: 0,           // 0 old rod · 1 willow · 2 storm-line
   bait: { kind: null, n: 0 },   // worm | glow casts remaining

@@ -311,6 +311,26 @@ export class World {
       this.fogQuads.push(q);
     }
 
+    // weather days: rain as short streaks that follow the player (hidden unless raining)
+    this.weather = 'clear';   // 'clear' | 'fog' | 'rain' — set by main each day
+    this.indoors = false;     // main flags this when the player is sheltered (no rain inside)
+    const RAIN_N = 320;
+    this._drops = [];
+    this._rainPos = new Float32Array(RAIN_N * 2 * 3);
+    for (let i = 0; i < RAIN_N; i++) {
+      this._drops.push({
+        lx: (Math.random() - 0.5) * 46, lz: (Math.random() - 0.5) * 46,
+        y: Math.random() * 22, spd: 22 + Math.random() * 10, len: 0.5 + Math.random() * 0.4,
+      });
+    }
+    const rainGeo = new THREE.BufferGeometry();
+    rainGeo.setAttribute('position', new THREE.BufferAttribute(this._rainPos, 3));
+    this.rain = new THREE.LineSegments(rainGeo,
+      new THREE.LineBasicMaterial({ color: 0x9fb4c8, transparent: true, opacity: 0.42, fog: true, depthWrite: false }));
+    this.rain.frustumCulled = false;
+    this.rain.visible = false;
+    scene.add(this.rain);
+
     // fake contact shadows ground the landmarks to the soil
     const houseAO = contactDisc(11);
     scene.add(houseAO);
@@ -725,10 +745,16 @@ export class World {
 
     const f = this.fear;
     this.skyColor.lerpColors(this._day, this.harvestNight ? this._bloodNight : this._night, this.harvestNight ? Math.max(f, 0.85) : f);
+    // weather days: rain greys the sky down
+    if (this.weather === 'rain') this.skyColor.multiplyScalar(0.78);
     // inside Level 3999 the haze stands down — neon needs clean air
-    this.scene.fog.density = this.lowFog ? 0.004 : 0.012 + f * 0.034;
-    this.hemi.intensity = 1.6 - f * 1.42;
-    this.dir.intensity = 1.05 - f * 0.97;
+    let dens = this.lowFog ? 0.004 : 0.012 + f * 0.034;
+    if (!this.lowFog && this.weather === 'fog') dens += 0.014;   // a real morning murk
+    if (!this.lowFog && this.weather === 'rain') dens += 0.007;
+    this.scene.fog.density = dens;
+    const wdim = this.weather === 'clear' ? 0 : 0.18;            // overcast-er on weather days
+    this.hemi.intensity = (1.6 - f * 1.42) * (1 - wdim);
+    this.dir.intensity = (1.05 - f * 0.97) * (1 - wdim);
     // sky dome: horizon slightly brighter than the zenith = overcast
     this.skyBottom.copy(this.skyColor).multiplyScalar(1.18);
     this.skyTop.copy(this.skyColor).multiplyScalar(0.9);
@@ -746,7 +772,25 @@ export class World {
         playerPos.z + Math.sin(a) * q.userData.dist);
       q.lookAt(playerPos.x, 1.7, playerPos.z);
       q.material.color.copy(this.skyColor).multiplyScalar(1.6);
-      q.material.opacity = f * 0.22;
+      q.material.opacity = f * 0.22 + (this.weather === 'fog' ? 0.13 * (1 - f) : 0);
+    }
+
+    // rain streaks falling around the player (weather days)
+    this.rain.visible = this.weather === 'rain' && !this.indoors;
+    if (this.rain.visible) {
+      const pos = this._rainPos;
+      for (let i = 0; i < this._drops.length; i++) {
+        const d = this._drops[i];
+        d.y -= d.spd * dt;
+        if (d.y < 0.2) {
+          d.y = 17 + Math.random() * 8;
+          d.lx = (Math.random() - 0.5) * 46; d.lz = (Math.random() - 0.5) * 46;
+        }
+        const o = i * 6, x = playerPos.x + d.lx, z = playerPos.z + d.lz;
+        pos[o] = x; pos[o + 1] = d.y; pos[o + 2] = z;
+        pos[o + 3] = x; pos[o + 4] = d.y - d.len; pos[o + 5] = z;
+      }
+      this.rain.geometry.attributes.position.needsUpdate = true;
     }
 
     // almond water pickups

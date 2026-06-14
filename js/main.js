@@ -219,6 +219,7 @@ function startGame(fromSave) {
   UI.setMoney(State.money);
   initProgression();
   restoration.refresh();   // light up whatever's already been restored in this save
+  ensureWeather(false);    // apply today's weather (the newDay handler announces it)
   if (!window.__journalInit) { window.__journalInit = true; initJournal(); }
   ensureLbName();
   UI.setLevel();
@@ -734,7 +735,36 @@ bus.on('newDay', ({ n, milestone }) => {
   UI.toast(milestone
     ? `🗓 DAY ${n} in the fields — milestone! +🪙${milestone}. The fields are starting to respect you.`
     : `🗓 Day ${n} in the fields.`, milestone ? 6000 : 3200);
+  ensureWeather(true);   // roll + announce the new day's weather
 });
+
+// ---------- weather days ----------
+let rainCatchT = 0;
+function pickWeatherFor(day) {
+  let h = 0;
+  for (let i = 0; i < day.length; i++) h = (h * 31 + day.charCodeAt(i)) >>> 0;
+  const r = (h % 1000) / 1000;
+  if (r < 0.22) return 'rain';
+  if (r < 0.45) return 'fog';
+  return 'clear';
+}
+function applyWeather(announce) {
+  const kind = State.weather.kind;
+  world.weather = kind;
+  audio.setRain(kind === 'rain');
+  if (!announce) return;
+  if (kind === 'rain') UI.toast('🌧 Rain over the fields today. Stay out in it — almond water gathers in the rain.', 6000);
+  else if (kind === 'fog') UI.toast('🌫 A heavy fog has settled this morning. You can\'t see as far — mind the dark.', 6000);
+}
+function ensureWeather(announce) {
+  const today = todayStr();
+  if (State.weather.day !== today) {
+    State.weather.day = today;
+    State.weather.kind = pickWeatherFor(today);
+    save();
+  }
+  applyWeather(announce);
+}
 
 // ---------- The Borrower ----------
 bus.on('borrowerSpawn', () => {
@@ -1566,6 +1596,7 @@ const _warmWindow = new THREE.Color(0xffc878);
 
 // tiny hooks for debugging from the console (harmless in production)
 window.__state = State;
+window.__world = world;
 window.__teleport = (x, z, y = 0) => player.set(x, y, z);
 window.__look = (yaw, pitch = 0) => { controls.yaw = yaw; controls.pitch = pitch; };
 window.__creatures = creatures;
@@ -1709,6 +1740,22 @@ function tick() {
   const inOther = otherHouse.isInside(player.x, player.z);
   const safe = inYard || inCamp || inArcade || inCellar || inOther;   // sheltered spots keep surface things out
   world.lowFog = inArcade;
+  const sheltered = inside || inArcade || inCellar || inOther;        // a roof overhead — no rain indoors
+  world.indoors = sheltered;
+  // weather days: in the rain, out in the open, you slowly catch almond water
+  if (world.weather === 'rain' && !sheltered && controls.enabled) {
+    rainCatchT += dt;
+    if (rainCatchT >= 45) {
+      rainCatchT = 0;
+      State.inventory.almondWater++;
+      State.totalAlmondFound++;
+      UI.setWater(State.inventory.almondWater);
+      audio.coin();
+      UI.toast('🌧 You cup your hands — the rain tastes faintly of almonds. +💧 almond water.', 5000);
+    }
+  } else {
+    rainCatchT = Math.max(0, rainCatchT - dt * 0.5);
+  }
   arcade.update(dt, State.playTime, player);
   if (inArcade) audio.startArcade();
   else audio.stopArcade();

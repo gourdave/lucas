@@ -46,6 +46,18 @@ export class GameAudio {
     wind.connect(windFilter).connect(this.windGain).connect(this.master);
     wind.start();
 
+    // rain: a brighter looping hiss, silent until the weather turns
+    const rain = ctx.createBufferSource();
+    rain.buffer = this._noiseBuffer(3);
+    rain.loop = true;
+    const rainFilter = ctx.createBiquadFilter();
+    rainFilter.type = 'highpass';
+    rainFilter.frequency.value = 1400;
+    this.rainGain = ctx.createGain();
+    this.rainGain.gain.value = 0;
+    rain.connect(rainFilter).connect(this.rainGain).connect(this.master);
+    rain.start();
+
     // dread drone: two slightly-detuned saws, very low
     this.droneGain = ctx.createGain();
     this.droneGain.gain.value = 0;
@@ -80,6 +92,12 @@ export class GameAudio {
       this._nextBeat = t + 0.5 + (sanity / 30) * 0.5;
       this._thump();
     }
+  }
+
+  // turn the rain hiss on/off (weather days)
+  setRain(on) {
+    if (!this.rainGain || !this.ctx) return;
+    this.rainGain.gain.setTargetAtTime(on ? 0.12 : 0, this.ctx.currentTime, 0.8);
   }
 
   _env(gainNode, t, peak, attack, decay) {
