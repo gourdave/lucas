@@ -2,6 +2,12 @@
 
 *a Backrooms · Level 10 story — **created by kamsamnor***
 
+### ▶ Play it now: **https://gourdave.github.io/lucas/**
+
+On your phone, open that link in Chrome and **⋮ → Add to Home Screen** to
+install it like a real app. (The live site updates automatically whenever
+changes land on the `main` branch.)
+
 A first-person exploration game set in Backrooms Level 10, "The Bumper Crop":
 an endless expanse of wheat and barley under a sky that never changes…
 as long as you stay close to home.
@@ -52,8 +58,8 @@ as long as you stay close to home.
 
 ## How to play
 
-Open the game link in Chrome on your phone, then **⋮ → Add to Home Screen**
-to install it like a real app.
+**Play here: https://gourdave.github.io/lucas/** — open it in Chrome on your
+phone, then **⋮ → Add to Home Screen** to install it like a real app.
 
 | | Phone | Computer |
 |---|---|---|
