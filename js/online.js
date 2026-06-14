@@ -39,19 +39,36 @@ export class Online {
     if (this.ws) { this.ws.onclose = null; this.ws.close(); this.ws = null; }
     this._cleanup();
     this.scene  = scene;
+    this._code  = code;            // remembered so we can auto-reconnect if dropped
+    this._intentional = false;
+    clearTimeout(this._reTimer);
     this.status = 'connecting';
     const clean = String(code || 'FIELDS').replace(/[^A-Za-z0-9]/g, '').slice(0, 8).toUpperCase() || 'FIELDS';
     try {
       this.ws = new WebSocket(ROOM_WS + '?code=' + encodeURIComponent(clean));
-      this.ws.onopen    = ()  => { this.status = 'connected'; };
-      this.ws.onclose   = ()  => { this._cleanup(); };
+      this.ws.onopen    = ()  => { this.status = 'connected'; this._retry = 0; };
+      this.ws.onclose   = ()  => { this._cleanup(); this._scheduleReconnect(); };
       this.ws.onerror   = ()  => { this.status = 'error'; };
       this.ws.onmessage = (e) => {
         try { this._onMsg(JSON.parse(e.data)); } catch { /* bad payload */ }
       };
     } catch {
       this.status = 'error';
+      this._scheduleReconnect();
     }
+  }
+
+  // the room drops connections (idle, deploys, hiccups) — keep coming back on
+  // our own, so you never have to restart to rejoin
+  _scheduleReconnect() {
+    if (this._intentional || !this.scene) return;
+    clearTimeout(this._reTimer);
+    this._retry = Math.min((this._retry || 0) + 1, 6);
+    const delay = Math.min(1000 * 2 ** (this._retry - 1), 15000);   // 1s,2s,4s… capped 15s
+    this.status = 'connecting';
+    this._reTimer = setTimeout(() => {
+      if (!this._intentional && this.scene) this.connect(this.scene, this._code);
+    }, delay);
   }
 
   // returns the cleaned text actually sent (so the local echo matches), or ''
@@ -63,6 +80,8 @@ export class Online {
   }
 
   disconnect() {
+    this._intentional = true;          // a deliberate disconnect: don't auto-reconnect
+    clearTimeout(this._reTimer);
     try { this.ws?.close(); } catch { /* ignore */ }
     this._cleanup();
     this.status = 'disconnected';
