@@ -471,6 +471,8 @@ export class Dreams {
     if (this.t > MIN_WAKE) this._wake = true;
   }
 
+  canWake() { return this.active && this.t > MIN_WAKE; }
+
   hudText() {
     return this.active && this.current && this.current.hud ? this.current.hud() : null;
   }

@@ -1,6 +1,7 @@
 // controls.js — one input module, two backends:
-//   desktop: click-and-drag mouse look + WASD + E to interact (cursor stays
-//            free so menu buttons are always clickable)
+//   desktop: WASD move · arrow keys look · E shoot/interact · Q (or Shift) run
+//            · Space jump · F drink · click-drag also looks (cursor stays free
+//            so menu buttons are always clickable)
 //   mobile:  floating left-thumb joystick + right-half drag look + tap to interact
 // Both feed the same { move, yaw, pitch } that the game reads each frame.
 
@@ -41,8 +42,9 @@ export class Controls {
       const tag = document.activeElement && document.activeElement.tagName;
       if (tag === 'INPUT' || tag === 'TEXTAREA') return; // typing in chat
       this._keys.add(e.code);
-      if (e.code === 'KeyE' && !e.repeat && this.enabled && this.onInteract) this.onInteract();
-      if (e.code === 'KeyQ' && !e.repeat && this.enabled && this.onDrink) this.onDrink();
+      if (this.enabled && e.code.startsWith('Arrow')) e.preventDefault();   // look, don't scroll the page
+      if (e.code === 'KeyE' && !e.repeat && this.enabled && this.onPrimary) this.onPrimary();  // shoot / interact
+      if (e.code === 'KeyF' && !e.repeat && this.enabled && this.onDrink) this.onDrink();        // drink almond water
       if (e.code === 'Space' && this.enabled) {
         e.preventDefault();   // don't scroll the page / click a focused button
         if (!e.repeat && this.onJump) this.onJump();
@@ -137,16 +139,29 @@ export class Controls {
   _setNub(x, y) { this.nub.style.transform = `translate(${x}px,${y}px)`; }
   _clampPitch() { this.pitch = Math.max(-1.45, Math.min(1.45, this.pitch)); }
 
-  // called once per frame; keyboard fills `move` when the joystick isn't held
-  update() {
+  // called once per frame; WASD moves, arrow keys look (keyboard-only friendly)
+  update(dt = 0.016) {
+    const k = this._keys;
     if (this._joyPtr === null) {
-      const k = this._keys;
-      let x = ((k.has('KeyD') || k.has('ArrowRight')) ? 1 : 0) - ((k.has('KeyA') || k.has('ArrowLeft')) ? 1 : 0);
-      let y = ((k.has('KeyW') || k.has('ArrowUp')) ? 1 : 0) - ((k.has('KeyS') || k.has('ArrowDown')) ? 1 : 0);
+      let x = (k.has('KeyD') ? 1 : 0) - (k.has('KeyA') ? 1 : 0);
+      let y = (k.has('KeyW') ? 1 : 0) - (k.has('KeyS') ? 1 : 0);
       if (x && y) { x *= 0.7071; y *= 0.7071; }
       this.move.x = x; this.move.y = y;
     }
-    if (!this.enabled) { this.move.x = 0; this.move.y = 0; }
+    if (this.enabled) {
+      const YS = 2.1, PS = 1.5;   // turn / tilt speed, radians per second
+      if (k.has('ArrowRight')) this.yaw -= YS * dt;
+      if (k.has('ArrowLeft')) this.yaw += YS * dt;
+      if (k.has('ArrowUp')) this.pitch += PS * dt;
+      if (k.has('ArrowDown')) this.pitch -= PS * dt;
+      if (k.has('ArrowUp') || k.has('ArrowDown')) this._clampPitch();
+      // run: hold Q or Shift (keyboard) or push the joystick to its edge (touch)
+      const mag = Math.hypot(this.move.x, this.move.y);
+      this.running = k.has('KeyQ') || k.has('ShiftLeft') || k.has('ShiftRight') || (this.isTouch && mag > 0.92);
+    } else {
+      this.move.x = 0; this.move.y = 0;
+      this.running = false;
+    }
   }
 
   releaseLock() {

@@ -64,9 +64,11 @@ phone, then **⋮ → Add to Home Screen** to install it like a real app.
 | | Phone | Computer |
 |---|---|---|
 | Move | left-thumb joystick | WASD |
-| Look | drag the right side | click and drag |
-| Interact | tap | E or click |
-| Drink almond water | tap the bottle button | Q |
+| Look | drag the right side | arrow keys (or click-drag) |
+| Shoot / interact | tap | E (or click) |
+| Run | push the joystick to its edge | Q or Shift |
+| Jump | — | Space |
+| Drink almond water | the bottle button | F (or the bottle button) |
 
 ## Tech (for grown-ups)
 

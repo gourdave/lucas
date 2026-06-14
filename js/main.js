@@ -232,6 +232,7 @@ function startGame(fromSave) {
   if (State.online.enabled) {
     online.connect(scene, State.online.code || 'FIELDS');
     online.onMsg = (name, text, color) => UI.addFriendMsg(name, text, color);
+    online.onPeerChange = () => UI.setOnlineStatus(online);   // live player count
   }
   UI.setOnlineStatus(online);
   if (!State.flags.welcomed) {
@@ -992,6 +993,7 @@ function openDailyChest() {
 controls.onInteract = interact;
 let jumpQueued = false, playerVY = 0;
 controls.onJump = () => { jumpQueued = true; };
+UI.onWake = () => dreams.requestWake();   // the dream's "Wake up" button
 UI.onPrompt = interact;
 // tap / click: in a dream it belongs to the minigame; awake, act on the
 // nearest prompt if there is one, otherwise shoot
@@ -1488,6 +1490,7 @@ async function wakeUp() {
   onTower = false;
   controls.enabled = false;
   UI.setDreamHud(null);
+  UI.setWake(false);
   audio.stopDream();
   await UI.fade(1, 1.1);
   const def = dreams.current;
@@ -1696,21 +1699,23 @@ function tick() {
 
   if (inDream) {
     UI.setMapVisible(false);   // no maps in dreams
-    controls.update();   // dreams are playable now — feed them your moves
+    controls.update(dt);   // dreams are playable now — feed them your moves
     const alive = dreams.update(dt, controls, () => audio.chime());
     UI.setDreamHud(dreams.hudText());
+    UI.setWake(dreams.canWake());   // a clickable way out of the dream
     renderer.render(dreams.scene, dreams.camera);
     if (!alive && !busy) wakeUp();
     return;
   }
 
-  controls.update();
+  controls.update(dt);
 
   // --- movement with wall sliding ---
   const mv = controls.move;
   const moving = (mv.x !== 0 || mv.y !== 0) && controls.enabled && !onTower;
   if (moving) {
     let speedMult = State.dreamPerks.includes('stride') ? 1.12 : 1;
+    if (controls.running) speedMult *= 1.7;   // run
     if (!house.isInYard(player.x, player.z)) {
       if (State.ride === 'cart') speedMult *= 2.2;
       else if (State.ride === 'bike') speedMult *= 1.8;
@@ -2087,3 +2092,12 @@ document.addEventListener('visibilitychange', () => {
   if (document.hidden && playing) save();
   else if (!document.hidden) audio.resume();
 });
+addEventListener('pagehide', () => { if (playing) save(); });   // catch refresh/close reliably
+// warn if the browser is blocking storage (private mode) — otherwise progress
+// silently vanishes on refresh
+try {
+  localStorage.setItem('__savetest', '1');
+  localStorage.removeItem('__savetest');
+} catch {
+  setTimeout(() => UI.toast('⚠ Your browser is blocking saves (private/incognito mode?). Progress won\'t survive a refresh until you switch to a normal window.', 10000), 2500);
+}

@@ -99,8 +99,14 @@ export class Online {
       if (p.mesh) {
         p.mesh.position.set(p.x, 0, p.z);
         p.mesh.rotation.y = p.yaw;
-        // hide if more than 240m away (save draw calls)
-        p.mesh.visible = Math.hypot(p.x - this._px, p.z - this._pz) < 240;
+        p.mesh.visible = true;   // always render peers — their name tag should read on the horizon
+        // the body fogs out at distance, but scale the name tag up so it stays legible far away
+        if (p.labelSprite) {
+          const dist = Math.hypot(p.x - this._px, p.z - this._pz);
+          const s = Math.min(7, Math.max(1, dist / 26));
+          p.labelSprite.scale.set(2.4 * s, 0.52 * s, 1);
+          p.labelSprite.position.y = 2.45 + 0.2 * (s - 1);
+        }
       }
       // chat bubble timer
       if (p.bubbleTimer > 0) {

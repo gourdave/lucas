@@ -184,6 +184,7 @@ export const UI = {
       this._hatchResolve = null;
       r && r();
     });
+    $('wakebtn').addEventListener('click', () => this.onWake && this.onWake());
     $('questsbtn').addEventListener('click', () => this.onOpenQuests && this.onOpenQuests());
     $('petsbtn').addEventListener('click', () => this.onOpenPets && this.onOpenPets());
     $('journalbtn').addEventListener('click', () => this.onOpenJournal && this.onOpenJournal());
@@ -390,12 +391,10 @@ export const UI = {
     chip.classList.remove('hidden');
     chip.style.pointerEvents = 'auto';
     chip.style.cursor = 'pointer';
-    const cnt = onlineObj.peerCount;
-    chip.innerHTML = cnt === 0
-      ? '🌐 online &nbsp;💬'
-      : `🌐 ${cnt} friend${cnt === 1 ? '' : 's'} &nbsp;💬`;
+    const total = onlineObj.peerCount + 1;   // everyone in the room, including you
+    chip.innerHTML = `🌐 ${total} online &nbsp;💬`;
     const lbl = $('online-label');
-    if (lbl) lbl.textContent = `online (${cnt})`;
+    if (lbl) lbl.textContent = `online (${total})`;
   },
 
   // open/close the friend chat slide-up panel
@@ -1011,6 +1010,9 @@ export const UI = {
     clearTimeout(this._dreamTimer);
     this._dreamTimer = setTimeout(() => this.dreamtitle.classList.add('hidden'), 3600);
   },
+  // the "Wake up" button shown during dreams (clickable exit once you're allowed)
+  setWake(show) { $('wakebtn').classList.toggle('hidden', !show); },
+
   // the dream minigame's one-line scoreboard (null hides it)
   setDreamHud(text) {
     const el = $('dreamhud');
