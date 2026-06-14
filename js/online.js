@@ -184,6 +184,12 @@ export class Online {
         this.onMsg?.(data.name || 'Friend', data.text || '', data.color || '#7ec8f0');
         break;
       }
+      case 'chathistory':
+        // recent messages replayed on join — fill the chat log, no bubbles
+        for (const m of data.messages || []) {
+          this.onMsg?.(m.name || 'Friend', m.text || '', m.color || '#7ec8f0');
+        }
+        break;
     }
   }
 

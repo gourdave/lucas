@@ -22,7 +22,7 @@ const ROOM_NOUN = ['Wheat', 'Worm', 'Fox', 'Crow', 'Grin', 'Lantern', 'Owl'];
 
 // bump this whenever you deploy so you can confirm the new code is live by
 // visiting the worker URL and checking the "version" field.
-const WORKER_VERSION = 'v16-profanity';
+const WORKER_VERSION = 'v17-chat';
 
 const MODEL = 'claude-haiku-4-5';
 const MAX_TOKENS = 220;
@@ -290,7 +290,7 @@ export class Leaderboard {
   // ---- the live friend room (WebSocket hibernation) ----
   // Each WS stores its metadata via serializeAttachment so the DO can hibernate
   // between messages without losing per-connection state.
-  roomConnect(request) {
+  async roomConnect(request) {
     const sockets = this.ctx.getWebSockets();
     if (sockets.length >= 8) {
       return new Response('room full (max 8 friends)', { status: 503 });
@@ -317,6 +317,11 @@ export class Leaderboard {
     }).filter(Boolean);
     server.send(JSON.stringify({ type: 'welcome', id, name, color: ROOM_COLORS[colorIdx] }));
     server.send(JSON.stringify({ type: 'state', peers }));
+
+    // replay recent chat so the conversation persists across refreshes and
+    // even after the room has been empty (it's saved in Durable Object storage)
+    const chatlog = (await this.ctx.storage.get('chatlog')) || [];
+    if (chatlog.length) server.send(JSON.stringify({ type: 'chathistory', messages: chatlog }));
 
     // tell the existing friends someone new arrived
     const joinMsg = JSON.stringify({ type: 'joined', id, name, color: ROOM_COLORS[colorIdx] });
@@ -346,10 +351,16 @@ export class Leaderboard {
       // the profanity filter server-side (a hacked client can't bypass this).
       const text = cleanProfanity(String(data.text || '').replace(/[\x00-\x1f\x7f]/g, '').slice(0, 140));
       if (text.trim()) {
-        const payload = JSON.stringify({ type: 'chat', id: meta.id, name: meta.name, text });
+        const color = ROOM_COLORS[meta.colorIdx ?? 0];
+        const payload = JSON.stringify({ type: 'chat', id: meta.id, name: meta.name, color, text });
         for (const s of this.ctx.getWebSockets()) {
           if (s !== ws) try { s.send(payload); } catch { /* stale */ }
         }
+        // persist the last 40 messages so they survive refreshes and DO restarts
+        const log = (await this.ctx.storage.get('chatlog')) || [];
+        log.push({ id: meta.id, name: meta.name, color, text, t: Date.now() });
+        while (log.length > 40) log.shift();
+        await this.ctx.storage.put('chatlog', log);
       }
     } else if (data.type === 'ping') {
       try { ws.send(JSON.stringify({ type: 'pong' })); } catch { /* ignore */ }
