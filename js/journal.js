@@ -62,6 +62,9 @@ export const BADGES = {
   restorer: { name: 'Handy', emoji: '🪛', desc: 'Finish a project on the restoration board' },
   restored: { name: 'The House Restored', emoji: '🏡', desc: 'Restore the whole house — light every window' },
   otherhouse: { name: 'The Other House', emoji: '🏚', desc: 'Open the legendary chest in the house that shouldn\'t be there' },
+  goldfarmer: { name: 'Golden Touch', emoji: '✨', desc: 'Harvest your first golden crop' },
+  allgold: { name: 'Golden Fields', emoji: '🏆', desc: 'Find the golden form of every crop' },
+  prismatic: { name: 'Prismatic', emoji: '🌈', desc: 'Harvest a prismatic crop — 1 in 100' },
 };
 
 function mark(list, id) {
@@ -97,6 +100,13 @@ export function journalSections() {
       title: 'CROPS', items: Object.entries(CROPS).map(([id, c]) => ({
         emoji: c.emoji, name: J.crops.includes(id) ? c.name : '???',
         sub: '', got: J.crops.includes(id),
+      })),
+    },
+    {
+      title: 'GOLDEN HARVEST', items: Object.entries(CROPS).map(([id, c]) => ({
+        emoji: J.golden.includes(id) ? '✨' : c.emoji,
+        name: J.golden.includes(id) ? `Golden ${c.name}` : '???',
+        sub: J.prismatic.includes(id) ? '🌈 prismatic found!' : '', got: J.golden.includes(id),
       })),
     },
     {
@@ -147,6 +157,12 @@ export function initJournal() {
     awardBadge('firstkill');
   });
   bus.on('harvest', ({ crop }) => mark(State.journal.crops, crop));
+  bus.on('cropMutation', ({ crop, mutation }) => {
+    if (mutation === 'prismatic') { mark(State.journal.prismatic, crop); awardBadge('prismatic'); }
+    mark(State.journal.golden, crop);   // prismatic implies you've seen this crop shine
+    awardBadge('goldfarmer');
+    if (State.journal.golden.length >= Object.keys(CROPS).length) awardBadge('allgold');
+  });
   bus.on('cookedMeal', ({ id }) => mark(State.journal.mealsMade, id));
   bus.on('banked', () => { if (State.money >= 500) awardBadge('rich'); });
   bus.on('levelup', ({ level }) => { if (level >= 10) awardBadge('level10'); });

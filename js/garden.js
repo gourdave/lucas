@@ -5,6 +5,11 @@
 
 import * as THREE from 'three';
 import { State, bus, save, gameNow } from './state.js';
+import { glowSprite } from './gfx.js';
+
+// rare crop mutations rolled at planting: a golden crop sells for 10×, a
+// prismatic one for 25×. Both glitter in the plot so you can see your luck.
+export const MUT_MULT = { golden: 10, prismatic: 25 };
 
 export const CROPS = {
   goldenwheat: { name: 'Golden Wheat', emoji: '🌾', growMin: 10, sell: 15, hunger: 20, calm: 5, color: 0xd8b24f, depth: 75 },
@@ -94,6 +99,17 @@ export class Garden {
         if (plotState.crop === 'shadowpumpkin') head.scale.y = 0.8;
         p.sprout.add(head);
       }
+      // a mutated crop glitters where it grew, so you spot your luck from afar
+      const mut = plotState.mutation;
+      if (mut && mut !== 'normal') {
+        const c = mut === 'prismatic' ? 0xff7adf : 0xffd24a;
+        mat.color.setHex(c);
+        mat.emissive.setHex(c);
+        mat.emissiveIntensity = 0.6;
+        const spark = glowSprite(c, 1.7, 0.6);
+        spark.position.y = 0.85;
+        p.sprout.add(spark);
+      }
     }
   }
 
@@ -101,7 +117,9 @@ export class Garden {
     if (State.garden.plots[i]) return false;
     if (!State.seeds[cropId]) return false;
     State.seeds[cropId]--;
-    State.garden.plots[i] = { crop: cropId, plantedAt: gameNow() };
+    const r = Math.random();
+    const mutation = r < 0.012 ? 'prismatic' : r < 0.09 ? 'golden' : 'normal';   // ~1.2% / ~7.8%
+    State.garden.plots[i] = { crop: cropId, plantedAt: gameNow(), mutation };
     bus.emit('planted', { crop: cropId });
     save();
     return true;
@@ -112,11 +130,20 @@ export class Garden {
     if (!plotState || this.stageOf(plotState) !== 2) return null;
     const crop = CROPS[plotState.crop];
     const count = 1 + Math.floor(Math.random() * 3); // 1–3 crops per harvest
-    State.inventory.food[plotState.crop] = (State.inventory.food[plotState.crop] || 0) + count;
+    const mutation = plotState.mutation || 'normal';
+    if (mutation === 'normal') {
+      State.inventory.food[plotState.crop] = (State.inventory.food[plotState.crop] || 0) + count;
+    } else {
+      const bag = mutation === 'prismatic'
+        ? (State.inventory.prismatic ||= {})
+        : (State.inventory.golden ||= {});
+      bag[plotState.crop] = (bag[plotState.crop] || 0) + count;
+      bus.emit('cropMutation', { crop: plotState.crop, mutation, count });
+    }
     State.garden.plots[i] = null;
     bus.emit('harvest', { crop: plotState.crop, count });
     save();
-    return { crop, count };
+    return { crop, count, mutation };
   }
 
   // label for the plot's interact prompt
@@ -128,7 +155,11 @@ export class Garden {
     }
     const stage = this.stageOf(plotState);
     const crop = CROPS[plotState.crop];
-    if (stage === 2) return `${crop.emoji}  Harvest ${crop.name}!`;
+    if (stage === 2) {
+      const mut = plotState.mutation;
+      const tag = mut === 'prismatic' ? '🌈 PRISMATIC ' : mut === 'golden' ? '✨ GOLDEN ' : '';
+      return `${tag}${crop.emoji}  Harvest ${crop.name}!`;
+    }
     return `⏳  ${crop.name} — ${this.minutesLeft(plotState)}m left`;
   }
 

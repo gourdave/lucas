@@ -768,6 +768,18 @@ function ensureWeather(announce) {
   applyWeather(announce);
 }
 
+// ---------- crop mutations ----------
+bus.on('cropMutation', ({ crop, mutation, count }) => {
+  const c = CROPS[crop];
+  if (mutation === 'prismatic') {
+    audio.fanfare();
+    UI.toast(`🌈 A PRISMATIC ${c.name}! One in a hundred. Worth 🪙${c.sell * 25 * count} at the stall (25×) — and it's in your journal forever.`, 9000);
+  } else {
+    audio.fanfare();
+    UI.toast(`✨ A GOLDEN ${c.name}! Worth 🪙${c.sell * 10 * count} at the stall (10×). Logged in your Golden Harvest.`, 7500);
+  }
+});
+
 // ---------- The Borrower ----------
 bus.on('borrowerSpawn', () => {
   audio.giggle();
@@ -895,9 +907,10 @@ function usePlot(i) {
   const result = garden.harvest(i);
   if (result) {
     audio.chime();
-    addXp(10);
+    addXp(result.mutation === 'normal' ? 10 : 25);
     UI.setFood(State.inventory.food);
-    UI.toast(`${result.crop.emoji} Harvested ×${result.count}! Eat it, or sell it at the stall.`);
+    if (result.mutation === 'normal')   // mutations get their own fanfare via the cropMutation handler
+      UI.toast(`${result.crop.emoji} Harvested ×${result.count}! Eat it, or sell it at the stall.`);
   } else {
     UI.toast(`⏳ Not ready — ${garden.minutesLeft(plotState)} minutes to go.`);
   }
@@ -1600,6 +1613,7 @@ const _warmWindow = new THREE.Color(0xffc878);
 window.__state = State;
 window.__world = world;
 window.__mirror = mirror;
+window.__garden = garden;
 window.__teleport = (x, z, y = 0) => player.set(x, y, z);
 window.__look = (yaw, pitch = 0) => { controls.yaw = yaw; controls.pitch = pitch; };
 window.__creatures = creatures;

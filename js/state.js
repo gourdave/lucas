@@ -26,7 +26,7 @@ export const State = {
   decor: [],            // furniture bought at the stall
   rides: [],            // 'bike', 'cart'
   ride: null,           // equipped ride
-  journal: { creatures: [], crops: [], mealsMade: [], badges: [] },
+  journal: { creatures: [], crops: [], mealsMade: [], badges: [], golden: [], prismatic: [] },
   fish: {},             // fish dex: { bass: 2, ... } — counted when BANKED at home
   digSite: null,        // { x, z, taps } — where the radio's numbers point
   digsDone: 0,
@@ -90,6 +90,8 @@ export function load() {
     Object.assign(State, data);
     State.inventory ||= { almondWater: 0 };
     State.inventory.food ||= {};
+    State.inventory.golden ||= {};       // rare golden crops (sell 10×)
+    State.inventory.prismatic ||= {};    // very rare prismatic crops (sell 25×)
     State.hunger ??= 100;
     State.money ??= 0;
     State.maxSanity ??= 100;
@@ -113,6 +115,8 @@ export function load() {
     State.rides ??= [];
     State.ride ??= null;
     State.journal ??= { creatures: [], crops: [], mealsMade: [], badges: [] };
+    State.journal.golden ??= [];       // crops you've found in golden form
+    State.journal.prismatic ??= [];    // crops you've found prismatic
     State.fish ??= {};
     State.digSite ??= null;
     State.digsDone ??= 0;

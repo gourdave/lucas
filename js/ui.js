@@ -1084,6 +1084,35 @@ export const UI = {
       row.appendChild(btn);
       wrap.appendChild(row);
     }
+    // sell rare mutated crops — golden (10×) and prismatic (25×)
+    for (const [bagKey, mult, emoji, label] of [
+      ['golden', 10, '✨', 'Sell golden harvest'],
+      ['prismatic', 25, '🌈', 'Sell prismatic harvest'],
+    ]) {
+      const bag = State.inventory[bagKey] || {};
+      const list = Object.entries(bag).filter(([id, n]) => CROPS[id] && n > 0);
+      if (!list.length) continue;
+      const total = list.reduce((sum, [id, n]) => sum + CROPS[id].sell * mult * n, 0);
+      const row = document.createElement('div');
+      row.className = 'shopitem';
+      row.innerHTML = `
+        <div class="si-emoji">${emoji}</div>
+        <div class="si-info">
+          <div class="si-name">${label} <span style="opacity:.7">(${mult}×)</span></div>
+          <div class="si-desc">${list.map(([id, n]) => `${CROPS[id].emoji}×${n}`).join('  ')}</div>
+        </div>`;
+      const btn = document.createElement('button');
+      btn.textContent = `+🪙 ${total}`;
+      btn.addEventListener('click', () => {
+        for (const [id] of list) bag[id] = 0;
+        State.money += total;
+        save();
+        this.onPurchase && this.onPurchase({ emoji, name: label });
+        this._renderShop();
+      });
+      row.appendChild(btn);
+      wrap.appendChild(row);
+    }
   },
 
   // ---------- therapist chat ----------
