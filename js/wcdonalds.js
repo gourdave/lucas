@@ -267,10 +267,40 @@ export class WcDonalds {
       this.regulars.push({ mesh: worm, kind: 'worm', phase: 4 });
     }
 
+    // solid walls (world coords) with a door opening on the east side (facing home),
+    // so you walk in through the door instead of phasing through a wall
+    this.colliders = [];
+    const W2 = W / 2, D2 = D / 2, DOOR0 = -0.6, DOOR1 = 1.6;   // door gap in z on the +x wall
+    const addC = (x0, x1, z0, z1) => this.colliders.push({
+      x0: WCD_POS.x + x0, x1: WCD_POS.x + x1, z0: WCD_POS.z + z0, z1: WCD_POS.z + z1, y0: 0, y1: H,
+    });
+    addC(-W2 - 0.15, -W2 + 0.15, -D2, D2);          // back (west)
+    addC(-W2, W2, -D2 - 0.15, -D2 + 0.15);          // north
+    addC(-W2, W2, D2 - 0.15, D2 + 0.15);            // south
+    addC(W2 - 0.15, W2 + 0.15, -D2, DOOR0);         // front (east), north of the door
+    addC(W2 - 0.15, W2 + 0.15, DOOR1, D2);          // front (east), south of the door
+
     g.position.set(WCD_POS.x, 0, WCD_POS.z);
     scene.add(g);
     this.group = g;
     this._munchT = 0;
+  }
+
+  // axis-separated slide against the walls (only does work near the building)
+  _blocked(x, z, feetY) {
+    for (const c of this.colliders) {
+      if (x > c.x0 - 0.32 && x < c.x1 + 0.32 && z > c.z0 - 0.32 && z < c.z1 + 0.32 &&
+          c.y1 > feetY + 0.4 && c.y0 < feetY + 1.6) return true;
+    }
+    return false;
+  }
+  collide(px, pz, nx, nz, feetY) {
+    if (!this.nearBuilding({ x: nx, z: nz }) && !this.nearBuilding({ x: px, z: pz })) return { x: nx, z: nz };
+    let x = nx;
+    if (this._blocked(x, pz, feetY)) x = px;
+    let z = nz;
+    if (this._blocked(x, z, feetY)) z = pz;
+    return { x, z };
   }
 
   // standing at the counter? (world coords; the counter front is local x≈-2.6)

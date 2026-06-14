@@ -990,6 +990,8 @@ function openDailyChest() {
   UI.toast(`🎁 Daily gift: +🪙${reward.coins}${reward.bonus ? ' and ' + reward.bonus : ''}!`);
 }
 controls.onInteract = interact;
+let jumpQueued = false, playerVY = 0;
+controls.onJump = () => { jumpQueued = true; };
 UI.onPrompt = interact;
 // tap / click: in a dream it belongs to the minigame; awake, act on the
 // nearest prompt if there is one, otherwise shoot
@@ -1721,8 +1723,9 @@ function tick() {
     const out3 = arcade.collide(player.x, player.z, out2.x, out2.z);
     const out4 = cellar.collide(player.x, player.z, out3.x, out3.z);
     const out5 = otherHouse.collide(player.x, player.z, out4.x, out4.z, player.y);
-    player.x = out5.x;
-    player.z = out5.z;
+    const out6 = wcd.collide(player.x, player.z, out5.x, out5.z, player.y);
+    player.x = out6.x;
+    player.z = out6.z;
     stillTime = 0;
     // walking bob + a footstep at each end of the sway
     walkPhase += dt * 7.2;
@@ -1737,11 +1740,22 @@ function tick() {
   }
   if (onTower) {
     player.y = TOWER_TOP;   // the platform holds you; gravity can wait
+    playerVY = 0;
   } else {
     const groundY = otherHouse.isNear(player.x, player.z)
       ? otherHouse.groundHeight(player.x, player.z, player.y)   // the Other House has its own stairs
       : house.groundHeight(player.x, player.z, player.y);
-    player.y = THREE.MathUtils.damp(player.y, groundY, 14, dt);
+    if (jumpQueued) {
+      jumpQueued = false;
+      if (playerVY === 0 && player.y <= groundY + 0.08) playerVY = 5.0;   // a hop, only from the ground
+    }
+    if (playerVY !== 0) {              // airborne: simple gravity until we land
+      playerVY -= 16 * dt;
+      player.y += playerVY * dt;
+      if (player.y <= groundY) { player.y = groundY; playerVY = 0; }
+    } else {                           // grounded: smooth follow (keeps stairs/floors smooth)
+      player.y = THREE.MathUtils.damp(player.y, groundY, 14, dt);
+    }
   }
 
   // --- world systems ---

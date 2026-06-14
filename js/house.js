@@ -168,8 +168,8 @@ export function buildHouse(scene) {
   floors.box(4, 0.22, 1.15, -4, FLOOR2 - 0.122, -3.925);                         // floor 2 west of stairwell
   floors.box(3.7, 0.22, 1.15, 4.15, FLOOR2 - 0.122, -3.925);                     // floor 2 east of stairwell
   roof.box(12.4, 0.2, 9.4, 0, 5.7, 0);                                          // ceiling
-  roof.box(13, 0.2, 5.6, 0, 6.7, -2.35, { rx: 0.42 });                          // roof slopes
-  roof.box(13, 0.2, 5.6, 0, 6.7, 2.35, { rx: -0.42 });
+  roof.box(13, 0.2, 5.6, 0, 6.7, -2.35, { rx: -0.42 });                         // roof slopes (peak at the ridge)
+  roof.box(13, 0.2, 5.6, 0, 6.7, 2.35, { rx: 0.42 });
   floors.box(2.4, 0.18, 1.3, 0, 0.09, 5.15);                                    // porch step
 
   // ================= interior walls, floor 1 =================

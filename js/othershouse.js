@@ -56,8 +56,8 @@ export class OtherHouse {
     box(floorMat, 4, 0.22, 1.15, -4, FLOOR2 - 0.122, -3.925);                 // floor 2 west of stairwell
     box(floorMat, 3.7, 0.22, 1.15, 4.15, FLOOR2 - 0.122, -3.925);             // floor 2 east of stairwell
     box(dark, 12.4, 0.2, 9.4, 0, 5.7, 0);                                     // ceiling
-    box(roofMat, 13, 0.2, 5.6, 0, 6.7, -2.35, { rx: 0.42 });                  // roof slopes
-    box(roofMat, 13, 0.2, 5.6, 0, 6.7, 2.35, { rx: -0.42 });
+    box(roofMat, 13, 0.2, 5.6, 0, 6.7, -2.35, { rx: -0.42 });                 // roof slopes (peak at the ridge)
+    box(roofMat, 13, 0.2, 5.6, 0, 6.7, 2.35, { rx: 0.42 });
     box(floorMat, 2.4, 0.18, 1.3, 0, 0.09, 5.15);                             // porch step
 
     // ===== interior walls =====

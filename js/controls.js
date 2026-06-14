@@ -43,6 +43,10 @@ export class Controls {
       this._keys.add(e.code);
       if (e.code === 'KeyE' && !e.repeat && this.enabled && this.onInteract) this.onInteract();
       if (e.code === 'KeyQ' && !e.repeat && this.enabled && this.onDrink) this.onDrink();
+      if (e.code === 'Space' && this.enabled) {
+        e.preventDefault();   // don't scroll the page / click a focused button
+        if (!e.repeat && this.onJump) this.onJump();
+      }
     });
     addEventListener('keyup', (e) => this._keys.delete(e.code));
 
@@ -57,8 +61,8 @@ export class Controls {
     addEventListener('mousemove', (e) => {
       if (!dragging || !this.enabled || this.isTouch) return;
       dragMoved += Math.abs(e.movementX) + Math.abs(e.movementY);
-      this.yaw -= e.movementX * 0.0022;
-      this.pitch -= e.movementY * 0.0022;
+      this.yaw -= e.movementX * 0.0045;     // brisk drag-look (no pointer lock, so make each drag count)
+      this.pitch -= e.movementY * 0.0045;
       this._clampPitch();
     });
     addEventListener('mouseup', (e) => {
